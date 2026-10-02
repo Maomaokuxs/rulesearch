@@ -1,0 +1,16 @@
+name: "Nyaa 磁力"
+type: magnet
+enabled: true
+
+request:
+  url: "https://nyaa.si/?f=0&c=0_0&q={keyword}"
+  method: GET
+  timeout: 20
+
+parse:
+  list: "tr.default"
+  fields:
+    title: {select: 'td[colspan="2"] a', attr: text}
+    url: {select: 'a[href^="magnet:"]', attr: href}
+    size: {select: "td:nth-of-type(4)", attr: text}
+    time: {select: "td[data-timestamp]", attr: text}

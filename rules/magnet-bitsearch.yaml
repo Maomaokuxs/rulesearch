@@ -1,0 +1,14 @@
+name: "BitSearch 磁力"
+type: magnet
+enabled: true
+
+request:
+  url: "https://bitsearch.to/search?q={keyword}"
+  method: GET
+  timeout: 20
+
+parse:
+  list: "div.bg-white.rounded-lg"
+  fields:
+    title: {select: "h3 a", attr: text}
+    url: {select: 'a[href^="magnet:"]', attr: href}

@@ -1,0 +1,17 @@
+name: "盘万搜"
+type: pan
+enabled: true
+
+request:
+  url: "https://www.panws.net/search?q={keyword}"
+  method: GET
+  timeout: 20
+
+# 跳转链接需 base64url 解码，用 Python 钩子处理（见 hooks/panws.py）
+hook: "panws:parse"
+
+parse:
+  list: "a.card"
+  fields:
+    title: {select: "div.left > div.name", attr: text}
+    url: {attr: href}

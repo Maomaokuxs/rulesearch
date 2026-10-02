@@ -1,0 +1,17 @@
+name: "PanSou"
+type: pan
+enabled: true
+
+request:
+  url: "https://pansou.app/api/search?kw={keyword}"
+  method: GET
+  timeout: 20
+
+# JSON API，用 Python 钩子解析（见 hooks/pansou.py）
+hook: "pansou:parse"
+
+parse:
+  list: "body"
+  fields:
+    title: {attr: text}
+    url: {attr: text}

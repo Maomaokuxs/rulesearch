@@ -1,0 +1,56 @@
+Type-safe project accessors is an incubating feature.
+
+> Configure project :app
+w: file:///home/biyuan/workspace/rulesearch/android/app/build.gradle.kts:60:25: 'fun <U : Task> RegisteringDomainObjectDelegateProviderWithTypeAndAction<out TaskContainer, U>.provideDelegate(receiver: Any?, property: KProperty<*>): ExistingDomainObjectDelegate<TaskProvider<U>>' is deprecated. Use 'val task = tasks.register<Type>(name) { }' instead. See the Gradle 9.6 upgrading guide.
+w: file:///home/biyuan/workspace/rulesearch/android/app/build.gradle.kts:60:25: 'fun <T : Any, C : PolymorphicDomainObjectContainer<T>, U : T> C.registering(type: KClass<U>, action: U.() -> Unit): RegisteringDomainObjectDelegateProviderWithTypeAndAction<out C, U>' is deprecated. Use 'val element = register<Type>(name) { }' instead. See the Gradle 9.6 upgrading guide.
+w: file:///home/biyuan/workspace/rulesearch/android/app/build.gradle.kts:60:25: 'fun <T> ExistingDomainObjectDelegate<out T>.getValue(receiver: Any?, property: KProperty<*>): T' is deprecated. Use the named() API instead. See the Gradle 9.6 upgrading guide.
+
+> Task :miuix:build-plugins:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :miuix:build-plugins:generateExternalPluginSpecBuilders
+> Task :miuix:build-plugins:extractPrecompiledScriptPluginPlugins
+> Task :miuix:build-plugins:compilePluginsBlocks
+> Task :miuix:build-plugins:generateScriptPluginAdapters
+> Task :miuix:build-plugins:pluginDescriptors
+> Task :miuix:build-plugins:processResources
+> Task :miuix:build-plugins:generatePrecompiledScriptPluginAccessors
+
+> Task :miuix:build-plugins:compileKotlin
+w: file:///home/biyuan/workspace/rulesearch/miuix/build-plugins/src/main/kotlin/module.publication.gradle.kts:37:25 'fun <U : Task> RegisteringDomainObjectDelegateProviderWithTypeAndAction<out TaskContainer, U>.provideDelegate(receiver: Any?, property: KProperty<*>): ExistingDomainObjectDelegate<TaskProvider<U>>' is deprecated. Use 'val task = tasks.register<Type>(name) { }' instead. See the Gradle 9.6 upgrading guide.
+w: file:///home/biyuan/workspace/rulesearch/miuix/build-plugins/src/main/kotlin/module.publication.gradle.kts:37:25 'fun <T : Any, C : PolymorphicDomainObjectContainer<T>, U : T> C.registering(type: KClass<U>, action: U.() -> Unit): RegisteringDomainObjectDelegateProviderWithTypeAndAction<out C, U>' is deprecated. Use 'val element = register<Type>(name) { }' instead. See the Gradle 9.6 upgrading guide.
+w: file:///home/biyuan/workspace/rulesearch/miuix/build-plugins/src/main/kotlin/module.publication.gradle.kts:37:25 'fun <T> ExistingDomainObjectDelegate<out T>.getValue(receiver: Any?, property: KProperty<*>): T' is deprecated. Use the named() API instead. See the Gradle 9.6 upgrading guide.
+
+> Task :miuix:build-plugins:compileJava NO-SOURCE
+> Task :miuix:build-plugins:classes
+> Task :miuix:build-plugins:jar
+
+> Configure project :miuix:baselineprofile
+WARNING: The option setting 'android.r8.maxWorkers=4' is experimental.
+The current default is '1'.
+Add android.sync.suppressAgpWarnings=UNSUPPORTED_PROJECT_OPTION_USE to the gradle.properties file to suppress this warning.
+
+[Incubating] Problems report is available at: file:///home/biyuan/workspace/rulesearch/android/build/reports/problems/problems-report.html
+
+FAILURE: Build failed with an exception.
+
+* Where:
+Build file '/home/biyuan/workspace/rulesearch/miuix/miuix-blur/build.gradle.kts' line: 6
+
+* What went wrong:
+An exception occurred applying plugin request [id: 'module.publication']
+> Failed to apply plugin 'module.publication'.
+   > Process 'command 'git'' finished with non-zero exit value 128
+
+* Try:
+> Run with --stacktrace option to get the stack trace.
+> Run with --info or --debug option to get more log output.
+> Run with --scan to get full insights from a Build Scan (powered by Develocity).
+> Get more help at https://help.gradle.org.
+
+Deprecated Gradle features were used in this build, making it incompatible with Gradle 10.
+
+You can use '--warning-mode all' to show the individual deprecation warnings and determine if they come from your own scripts or plugins.
+
+For more on this, please refer to https://docs.gradle.org/9.8.0/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
+
+BUILD FAILED in 4m 24s
+9 actionable tasks: 9 executed
