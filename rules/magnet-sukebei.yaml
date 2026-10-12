@@ -1,0 +1,19 @@
+name: "Sukebei 磁力"
+type: magnet
+enabled: true
+version: 1
+update_url: "https://raw.githubusercontent.com/Maomaokuxs/rulesearch/main/rules/magnet-sukebei.yaml"
+
+request:
+  url: "https://sukebei.nyaa.si/?f=0&c=0_0&q={keyword}"
+  method: GET
+  timeout: 20
+
+# 与 Nyaa 同构，直接复用选择器
+parse:
+  list: "tr.default"
+  fields:
+    title: {select: 'td[colspan="2"] a', attr: text}
+    url: {select: 'a[href^="magnet:"]', attr: href}
+    size: {select: "td:nth-of-type(4)", attr: text}
+    time: {select: "td[data-timestamp]", attr: text}

@@ -1,0 +1,19 @@
+name: "懒盘搜索"
+type: pan
+enabled: true
+version: 1
+update_url: "https://raw.githubusercontent.com/Maomaokuxs/rulesearch/main/rules/pan-lzpanx.yaml"
+
+request:
+  url: "https://www.lzpanx.com/search?q={keyword}"
+  method: GET
+  timeout: 20
+
+# 列表页进详情页取 a.jump-link 真实网盘地址（见 hooks/lzpanx.py）
+hook: "lzpanx:parse"
+
+parse:
+  list: "body"
+  fields:
+    title: {attr: text}
+    url: {attr: text}

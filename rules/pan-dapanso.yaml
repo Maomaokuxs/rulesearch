@@ -1,0 +1,19 @@
+name: "大盘搜"
+type: pan
+enabled: true
+version: 1
+update_url: "https://raw.githubusercontent.com/Maomaokuxs/rulesearch/main/rules/pan-dapanso.yaml"
+
+request:
+  url: "https://dapanso.com/search?keyword={keyword}&page=1&type="
+  method: GET
+  timeout: 20
+
+# 搜索页直出各网盘分享链接（见 hooks/dapanso.py）
+hook: "dapanso:parse"
+
+parse:
+  list: "div.item"
+  fields:
+    title: {select: "a.title", attr: text}
+    url: {select: "div.content-info a", attr: href}

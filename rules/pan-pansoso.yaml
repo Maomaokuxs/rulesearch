@@ -1,0 +1,19 @@
+name: "盘搜搜"
+type: pan
+enabled: true
+version: 1
+update_url: "https://raw.githubusercontent.com/Maomaokuxs/rulesearch/main/rules/pan-pansoso.yaml"
+
+request:
+  url: "https://www.pansoso.com/zh/{keyword}"
+  method: GET
+  timeout: 20
+
+# 纯静态 HTML，无反爬；des 文本含网盘类型和大小，用钩子提取干净字段
+hook: "pansoso:parse"
+
+parse:
+  list: "body"
+  fields:
+    title: {attr: text}
+    url: {attr: text}

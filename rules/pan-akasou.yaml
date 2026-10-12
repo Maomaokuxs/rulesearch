@@ -1,0 +1,19 @@
+name: "阿卡搜"
+type: pan
+enabled: true
+version: 1
+update_url: "https://raw.githubusercontent.com/Maomaokuxs/rulesearch/main/rules/pan-akasou.yaml"
+
+request:
+  url: "https://www.vecom.top/search?q={keyword}"
+  method: GET
+  timeout: 20
+
+# 与盘万搜同构（a.card + /link/{base64url}），复用 panws 钩子（见 hooks/panws.py）
+hook: "panws:parse"
+
+parse:
+  list: "a.card"
+  fields:
+    title: {select: "div.left > div.name", attr: text}
+    url: {attr: href}

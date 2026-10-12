@@ -1,6 +1,8 @@
 name: "PanSou"
 type: pan
 enabled: true
+version: 1
+update_url: "https://raw.githubusercontent.com/Maomaokuxs/rulesearch/main/rules/pan-pansou.yaml"
 
 request:
   url: "https://pansou.app/api/search?kw={keyword}"

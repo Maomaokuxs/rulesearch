@@ -94,9 +94,18 @@ def run_rule(rule: Rule, keyword: str) -> tuple[list[SearchResult], str | None]:
 
 
 def search_all(
-    keyword: str, rules: list[Rule], max_workers: int = 8
-) -> tuple[list[dict], list[str]]:
-    """并发跑所有规则，返回 (去重后的结果 dict 列表, 错误列表)。"""
+    keyword: str, rules: list[Rule], max_workers: int = 8, blocked_words: list[str] | None = None
+) -> tuple[list[dict], list[str], int]:
+    """并发跑所有规则，返回 (去重后的结果 dict 列表, 错误列表, 被过滤条数)。
+
+    blocked_words：标题含其中任意词（不区分大小写）即过滤，用于去广告/色情。
+    """
+    blocked = [w.strip().lower() for w in (blocked_words or []) if w.strip()]
+
+    def is_blocked(title: str) -> bool:
+        t = title.lower()
+        return any(w in t for w in blocked)
+
     results: list[SearchResult] = []
     errors: list[str] = []
     with ThreadPoolExecutor(max_workers=max_workers) as pool:
@@ -106,8 +115,12 @@ def search_all(
                 errors.append(err)
     seen: set[str] = set()
     uniq: list[dict] = []
+    filtered = 0
     for r in results:
+        if blocked and is_blocked(r.title):
+            filtered += 1
+            continue
         if r.url not in seen:
             seen.add(r.url)
             uniq.append(r.to_dict())
-    return uniq, errors
+    return uniq, errors, filtered

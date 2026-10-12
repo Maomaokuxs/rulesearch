@@ -1,0 +1,19 @@
+name: "爱盼"
+type: magnet
+enabled: true
+version: 1
+update_url: "https://raw.githubusercontent.com/Maomaokuxs/rulesearch/main/rules/magnet-aipan.yaml"
+
+request:
+  url: "https://www.aipan.me/api/movies/search?q={keyword}"
+  method: GET
+  timeout: 20
+
+# 爱盼影视站 JSON API：先搜条目再取详情里的磁链/网盘链接（见 hooks/aipan.py）
+hook: "aipan:parse"
+
+parse:
+  list: "body"
+  fields:
+    title: {attr: text}
+    url: {attr: text}

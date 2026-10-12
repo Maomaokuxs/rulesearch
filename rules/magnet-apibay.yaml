@@ -1,0 +1,19 @@
+name: "海盗湾磁力"
+type: magnet
+enabled: true
+version: 1
+update_url: "https://raw.githubusercontent.com/Maomaokuxs/rulesearch/main/rules/magnet-apibay.yaml"
+
+request:
+  url: "https://apibay.org/q.php?q={keyword}"
+  method: GET
+  timeout: 20
+
+# TPB 官方 JSON API，用 Python 钩子解析（见 hooks/apibay.py）
+hook: "apibay:parse"
+
+parse:
+  list: "body"
+  fields:
+    title: {attr: text}
+    url: {attr: text}

@@ -1,0 +1,19 @@
+name: "NASPT"
+type: pan
+enabled: true
+version: 1
+update_url: "https://raw.githubusercontent.com/Maomaokuxs/rulesearch/main/rules/pan-naspt.yaml"
+
+request:
+  url: "https://api.naspt.vip/api/open/pansou/search?kw={keyword}"
+  method: GET
+  timeout: 20
+
+# NASPT 开放 JSON API，直出网盘分享链接（见 hooks/naspt.py）
+hook: "naspt:parse"
+
+parse:
+  list: "body"
+  fields:
+    title: {attr: text}
+    url: {attr: text}

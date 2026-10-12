@@ -1,0 +1,20 @@
+name: "Internet Archive"
+type: magnet
+enabled: true
+version: 1
+update_url: "https://raw.githubusercontent.com/Maomaokuxs/rulesearch/main/rules/magnet-archiveorg.yaml"
+
+request:
+  # fl[] 会被 quote_plus 编码，保持可用；API 稳定多年，无需登录
+  url: "https://archive.org/advancedsearch.php?q={keyword}&fl%5B%5D=identifier&fl%5B%5D=title&fl%5B%5D=date&rows=50&output=json"
+  method: GET
+  timeout: 20
+
+# JSON API，用 Python 钩子解析（见 hooks/archiveorg.py）
+hook: "archiveorg:parse"
+
+parse:
+  list: "body"
+  fields:
+    title: {attr: text}
+    url: {attr: text}

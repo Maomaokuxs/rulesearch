@@ -1,6 +1,8 @@
 name: "盘万搜"
 type: pan
 enabled: true
+version: 1
+update_url: "https://raw.githubusercontent.com/Maomaokuxs/rulesearch/main/rules/pan-panws.yaml"
 
 request:
   url: "https://www.panws.net/search?q={keyword}"

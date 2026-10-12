@@ -1,0 +1,19 @@
+name: "PanSou备用站"
+type: pan
+enabled: true
+version: 1
+update_url: "https://raw.githubusercontent.com/Maomaokuxs/rulesearch/main/rules/pan-pansoubk.yaml"
+
+request:
+  url: "https://so.252035.xyz/api/search?kw={keyword}"
+  method: GET
+  timeout: 25
+
+# PanSou 同款 JSON API（第三方公开部署实例，2026-10 实测三体 46 条），复用 pansou 钩子
+hook: "pansou:parse"
+
+parse:
+  list: "body"
+  fields:
+    title: {attr: text}
+    url: {attr: text}

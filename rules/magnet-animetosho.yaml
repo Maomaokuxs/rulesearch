@@ -1,0 +1,19 @@
+name: "AnimeTosho"
+type: magnet
+enabled: true
+version: 1
+update_url: "https://raw.githubusercontent.com/Maomaokuxs/rulesearch/main/rules/magnet-animetosho.yaml"
+
+request:
+  url: "https://feed.animetosho.org/rss2?q={keyword}"
+  method: GET
+  timeout: 20
+
+# AnimeTosho 动漫 RSS，description 里取 magnet（见 hooks/animetosho.py）
+hook: "animetosho:parse"
+
+parse:
+  list: "body"
+  fields:
+    title: {attr: text}
+    url: {attr: text}

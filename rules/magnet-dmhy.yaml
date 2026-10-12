@@ -1,0 +1,19 @@
+name: "动漫花园"
+type: magnet
+enabled: true
+version: 1
+update_url: "https://raw.githubusercontent.com/Maomaokuxs/rulesearch/main/rules/magnet-dmhy.yaml"
+
+request:
+  url: "https://share.dmhy.org/topics/list?keyword={keyword}"
+  method: GET
+  timeout: 20
+
+# 动漫花园（share.dmhy.org）：老牌动漫资源站，表格结构多年稳定
+parse:
+  list: "table#topic_list tr"
+  fields:
+    title: {select: 'td.title a[href^="/topics/view"]', attr: text}
+    url: {select: "a.download-arrow.arrow-magnet", attr: href}
+    size: {select: "td:nth-of-type(5)", attr: text}
+    time: {select: "td:nth-of-type(1)", attr: text}

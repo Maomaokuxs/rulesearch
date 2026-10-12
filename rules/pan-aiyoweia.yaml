@@ -1,0 +1,19 @@
+name: "哎哟喂啊"
+type: pan
+enabled: true
+version: 1
+update_url: "https://raw.githubusercontent.com/Maomaokuxs/rulesearch/main/rules/pan-aiyoweia.yaml"
+
+request:
+  url: "https://www.aiyoweia.com/search/{keyword}"
+  method: GET
+  timeout: 20
+
+# 列表页进详情页取 /down/ 链接尾部 base64 真实地址（见 hooks/aiyoweia.py）
+hook: "aiyoweia:parse"
+
+parse:
+  list: "li.catlist-li"
+  fields:
+    title: {select: "div.catlist-li-title > a", attr: text}
+    url: {select: "div.catlist-li-title > a", attr: href}

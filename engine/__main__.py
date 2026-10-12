@@ -29,12 +29,13 @@ def main() -> None:
 
     args = ap.parse_args()
     rules, load_errors = load_rules(args.rules)
-    results, errors = search_all(args.keyword, rules, max_workers=args.workers)
+    results, errors, filtered = search_all(args.keyword, rules, max_workers=args.workers)
     print(
         json.dumps(
             {
                 "keyword": args.keyword,
                 "count": len(results),
+                "filtered": filtered,
                 "results": results,
                 "errors": load_errors + errors,
             },
