@@ -206,6 +206,8 @@ fun parseTimeMs(s: String): Long? {
 
 /** 薄 ViewModel：调 Python 引擎 + 解析 JSON + 本地状态持久化。 */
 class SearchViewModel(app: Application) : AndroidViewModel(app) {
+    // 搜索框 FLIP 动画是否已播过（切 tab 不重播）
+    var flipPlayedForKeyword: String? = null
     private val prefs = app.getSharedPreferences("rulesearch", Context.MODE_PRIVATE)
 
     var keyword by mutableStateOf("")
@@ -213,6 +215,7 @@ class SearchViewModel(app: Application) : AndroidViewModel(app) {
     var loading by mutableStateOf(false)
     var error by mutableStateOf<String?>(null)
     private var searchJob: Job? = null
+    private var searchGen = 0
 
     // 一键检测：url -> true(可访问)/false(疑似失效)，磁力不参与
     var linkStatus by mutableStateOf<Map<String, Boolean>>(emptyMap())
@@ -335,6 +338,7 @@ class SearchViewModel(app: Application) : AndroidViewModel(app) {
         onlyReachable = false
         hiddenPanBrands = emptySet()
         searchJob?.cancel()
+        val gen = ++searchGen
         searchJob = viewModelScope.launch {
             loading = true
             error = null
@@ -351,10 +355,14 @@ class SearchViewModel(app: Application) : AndroidViewModel(app) {
                 selectedTab = 0 // 新搜索回到第一个 tab
                 linkStatus = emptyMap()
                 checkProgress = null
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                // 用户主动取消，不显示错误
+                throw e
             } catch (e: Exception) {
                 error = e.message ?: e.toString()
             } finally {
-                loading = false
+                // 只有最新任务才清 loading，避免旧任务覆盖新搜索状态
+                if (searchGen == gen) loading = false
             }
         }
     }

@@ -30,7 +30,15 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             MiuixTheme(
-                colors = if (isSystemInDarkTheme()) darkColorScheme() else lightColorScheme()
+                colors = if (isSystemInDarkTheme()) darkColorScheme(
+                    primary = androidx.compose.ui.graphics.Color(0xFF2F7CF6),
+                    // secondary #505050 在黑底上对比度不足，提亮到 #9A9A9A 保可读
+                    secondary = androidx.compose.ui.graphics.Color(0xFF9A9A9A),
+                ) else lightColorScheme(
+                    primary = androidx.compose.ui.graphics.Color(0xFF2F7CF6),
+                    // secondary #E6E6E6 在白底上近乎不可见，加深到 #8A8A8E 保可读
+                    secondary = androidx.compose.ui.graphics.Color(0xFF8A8A8E),
+                )
             ) {
                 AppRoot(
                     // Deep link 进来（如 rulesearch://search?keyword=三体）直接开搜

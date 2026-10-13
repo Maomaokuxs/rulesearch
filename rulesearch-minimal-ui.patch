@@ -1,0 +1,2317 @@
+diff --git a/android/app/src/main/java/dev/rulesearch/app/ui/AppRoot.kt b/android/app/src/main/java/dev/rulesearch/app/ui/AppRoot.kt
+index 5d6ce8f..ab7c4ea 100644
+--- a/android/app/src/main/java/dev/rulesearch/app/ui/AppRoot.kt
++++ b/android/app/src/main/java/dev/rulesearch/app/ui/AppRoot.kt
+@@ -16,9 +16,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
+ import androidx.compose.foundation.layout.padding
+ import androidx.compose.material.icons.Icons
+ import androidx.compose.material.icons.filled.FavoriteBorder
+-import androidx.compose.material.icons.filled.Refresh
++import androidx.compose.material.icons.filled.Person
+ import androidx.compose.material.icons.filled.Search
+-import androidx.compose.material.icons.filled.Settings
+ import androidx.compose.runtime.Composable
+ import androidx.compose.runtime.getValue
+ import androidx.compose.runtime.mutableIntStateOf
+@@ -44,7 +43,7 @@ import top.yukonga.miuix.kmp.basic.Scaffold
+ import top.yukonga.miuix.kmp.basic.Text
+ import top.yukonga.miuix.kmp.theme.MiuixTheme
+ 
+-/** 底部 dock 标签页：搜索 / 收藏 / 足迹 / 设置，切换带滑动+淡入动画。 */
++/** 底部 dock 标签页：搜索 / 收藏 / 我的，切换带滑动+淡入动画。 */
+ @Composable
+ fun AppRoot(
+     vm: SearchViewModel = viewModel(),
+@@ -53,7 +52,7 @@ fun AppRoot(
+     clipboardLink: String? = null,
+     onClipboardConsumed: () -> Unit = {},
+ ) {
+-    // 0=搜索，1=收藏，2=足迹，3=设置
++    // 0=搜索，1=收藏，2=我的
+     var tab by remember { mutableIntStateOf(0) }
+ 
+     // 非搜索页按返回：回到搜索页
+@@ -77,14 +76,8 @@ fun AppRoot(
+                 NavigationBarItem(
+                     selected = tab == 2,
+                     onClick = { tab = 2 },
+-                    icon = Icons.Filled.Refresh,
+-                    label = "足迹",
+-                )
+-                NavigationBarItem(
+-                    selected = tab == 3,
+-                    onClick = { tab = 3 },
+-                    icon = Icons.Filled.Settings,
+-                    label = "设置",
++                    icon = Icons.Filled.Person,
++                    label = "我的",
+                 )
+             }
+         },
+@@ -109,8 +102,7 @@ fun AppRoot(
+                         autoOpenDialog = autoOpenDialog,
+                     )
+                     1 -> FavoritesTab(vm = vm)
+-                    2 -> FootprintsTab(vm = vm)
+-                    else -> SettingsTab(vm = vm)
++                    else -> MineTab(vm = vm)
+                 }
+             }
+         }
+diff --git a/android/app/src/main/java/dev/rulesearch/app/ui/Brand.kt b/android/app/src/main/java/dev/rulesearch/app/ui/Brand.kt
+new file mode 100644
+index 0000000..3f8fe88
+--- /dev/null
++++ b/android/app/src/main/java/dev/rulesearch/app/ui/Brand.kt
+@@ -0,0 +1,31 @@
++package dev.rulesearch.app.ui
++
++import androidx.compose.ui.graphics.Color
++import dev.rulesearch.app.PAN_BRAND_DEFS
++
++/** 网盘品牌色：结果行里那个 8dp 小圆点的颜色，一眼认品牌。 */
++val BRAND_COLORS: Map<String, Color> = mapOf(
++    "quark" to Color(0xFFFF6A00), // 夸克
++    "baidu" to Color(0xFF2F6DF6), // 百度
++    "ali" to Color(0xFF704DF0), // 阿里
++    "p123" to Color(0xFF12A594), // 123
++    "uc" to Color(0xFFE5484D), // UC
++    "xunlei" to Color(0xFF0EA5E9), // 迅雷
++    "ct189" to Color(0xFFF59E0B), // 天翼
++    "cmcc139" to Color(0xFF00A0E9), // 移动
++    "weiyun" to Color(0xFF07C160), // 微云
++    "lanzou" to Color(0xFF3BAFDA), // 蓝奏
++    "yun115" to Color(0xFF8B5CF6), // 115
++    "cow" to Color(0xFFFFB020), // 奶牛快传
++    "ctfile" to Color(0xFF00B578), // 城通
++    "wo" to Color(0xFFFF5C39), // 沃云盘
++)
++
++/** 链接有效标记的绿色（Miuix 色板里没有语义绿，单独定一个深浅模式都可读的）。 */
++val COLOR_REACHABLE = Color(0xFF2FA36B)
++
++fun brandColor(key: String): Color = BRAND_COLORS[key] ?: Color(0xFF8A8A8E)
++
++/** 品牌 key → 中文名（夸克网盘 / 百度网盘 …），找不到回退 key 本身。 */
++fun brandLabel(key: String): String =
++    PAN_BRAND_DEFS.firstOrNull { it.first == key }?.second ?: key
+diff --git a/android/app/src/main/java/dev/rulesearch/app/ui/FavoritesScreen.kt b/android/app/src/main/java/dev/rulesearch/app/ui/FavoritesScreen.kt
+index 381f6e1..29574b9 100644
+--- a/android/app/src/main/java/dev/rulesearch/app/ui/FavoritesScreen.kt
++++ b/android/app/src/main/java/dev/rulesearch/app/ui/FavoritesScreen.kt
+@@ -1,11 +1,12 @@
+ package dev.rulesearch.app.ui
+ 
+-import androidx.compose.foundation.layout.Arrangement
++import androidx.compose.foundation.clickable
+ import androidx.compose.foundation.layout.Box
+ import androidx.compose.foundation.layout.Column
+ import androidx.compose.foundation.layout.PaddingValues
+ import androidx.compose.foundation.layout.Row
+ import androidx.compose.foundation.layout.fillMaxSize
++import androidx.compose.foundation.layout.fillMaxWidth
+ import androidx.compose.foundation.layout.padding
+ import androidx.compose.foundation.lazy.LazyColumn
+ import androidx.compose.foundation.lazy.items
+@@ -23,7 +24,6 @@ import androidx.compose.ui.unit.sp
+ import dev.rulesearch.app.FavoriteUi
+ import dev.rulesearch.app.SearchResultUi
+ import dev.rulesearch.app.SearchViewModel
+-import top.yukonga.miuix.kmp.basic.Card
+ import top.yukonga.miuix.kmp.basic.Text
+ import top.yukonga.miuix.kmp.basic.TextButton
+ import top.yukonga.miuix.kmp.theme.MiuixTheme
+@@ -33,12 +33,12 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
+ fun FavoritesTab(vm: SearchViewModel) {
+     var opened by remember { mutableStateOf<FavoriteUi?>(null) }
+ 
+-    Column(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
++    Column(modifier = Modifier.fillMaxSize()) {
+         Text(
+             text = "收藏",
+             fontWeight = FontWeight.Bold,
+             fontSize = 32.sp,
+-            modifier = Modifier.padding(top = 16.dp, bottom = 12.dp),
++            modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 4.dp),
+         )
+         if (vm.favorites.isEmpty()) {
+             Box(
+@@ -48,52 +48,58 @@ fun FavoritesTab(vm: SearchViewModel) {
+                 Text(
+                     text = "还没有收藏，在搜索结果里点「收藏」即可保存",
+                     color = MiuixTheme.colorScheme.secondary,
++                    fontSize = 14.sp,
+                 )
+             }
+         } else {
+             LazyColumn(
+-                verticalArrangement = Arrangement.spacedBy(12.dp),
++                modifier = Modifier.fillMaxSize(),
+                 contentPadding = PaddingValues(bottom = 16.dp),
+             ) {
+                 items(vm.favorites, key = { it.url }) { f ->
+-                    Card(
+-                        onClick = { opened = f },
+-                        insideMargin = PaddingValues(12.dp),
+-                    ) {
+-                        Row(verticalAlignment = Alignment.CenterVertically) {
+-                            Column(modifier = Modifier.weight(1f)) {
++                    val asResult = SearchResultUi(
++                        title = f.title,
++                        url = f.url,
++                        size = f.size,
++                        time = f.time,
++                        source = f.source,
++                        kind = f.kind,
++                    )
++                    Column {
++                        Row(
++                            modifier = Modifier.fillMaxWidth()
++                                .clickable { opened = f }
++                                .padding(horizontal = 16.dp, vertical = 12.dp),
++                            verticalAlignment = Alignment.CenterVertically,
++                        ) {
++                            Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
+                                 Text(
+                                     text = f.title,
+                                     maxLines = 2,
+                                     overflow = TextOverflow.Ellipsis,
+                                     fontWeight = FontWeight.Medium,
+-                                    fontSize = 14.sp,
+-                                )
+-                                val meta = f.size.ifEmpty { f.time }
+-                                val sub = if (meta.isNotEmpty()) "${f.source} · $meta" else f.source
+-                                Text(
+-                                    text = sub,
+-                                    fontSize = 12.sp,
+-                                    color = MiuixTheme.colorScheme.secondary,
+-                                    maxLines = 1,
+-                                    overflow = TextOverflow.Ellipsis,
+-                                    modifier = Modifier.padding(top = 4.dp),
++                                    fontSize = 15.sp,
++                                    lineHeight = 20.sp,
+                                 )
++                                Box(modifier = Modifier.padding(top = 6.dp)) {
++                                    ResultMetaLine(asResult)
++                                }
+                             }
+                             TextButton(
+                                 text = "删除",
+                                 onClick = { vm.removeFavorite(f.url) },
+                             )
+                         }
++                        ResultDivider()
+                     }
+                 }
+             }
+         }
+     }
+ 
+-    // 点收藏条目：同样走详情弹窗（可复制/打开/取消收藏）
++    // 点收藏条目：同样走详情弹层（可复制/打开/取消收藏）
+     opened?.let { f ->
+-        ResultDialog(
++        ResultSheet(
+             result = SearchResultUi(
+                 title = f.title,
+                 url = f.url,
+diff --git a/android/app/src/main/java/dev/rulesearch/app/ui/FootprintsScreen.kt b/android/app/src/main/java/dev/rulesearch/app/ui/FootprintsScreen.kt
+index 7f4a319..d0979f2 100644
+--- a/android/app/src/main/java/dev/rulesearch/app/ui/FootprintsScreen.kt
++++ b/android/app/src/main/java/dev/rulesearch/app/ui/FootprintsScreen.kt
+@@ -1,5 +1,6 @@
+ package dev.rulesearch.app.ui
+ 
++import androidx.compose.foundation.clickable
+ import androidx.compose.foundation.layout.Arrangement
+ import androidx.compose.foundation.layout.Box
+ import androidx.compose.foundation.layout.Column
+@@ -24,7 +25,6 @@ import androidx.compose.ui.unit.sp
+ import dev.rulesearch.app.FootprintUi
+ import dev.rulesearch.app.SearchResultUi
+ import dev.rulesearch.app.SearchViewModel
+-import top.yukonga.miuix.kmp.basic.Card
+ import top.yukonga.miuix.kmp.basic.Text
+ import top.yukonga.miuix.kmp.basic.TextButton
+ import top.yukonga.miuix.kmp.theme.MiuixTheme
+@@ -41,14 +41,14 @@ private fun formatFootprintTime(ts: Long): String {
+     }
+ }
+ 
+-/** 足迹页（底部 dock 的"足迹"标签）：点开过的结果，按时间倒序。 */
++/** 足迹页（"我的"里的二级页面）：点开过的结果，按时间倒序。 */
+ @Composable
+ fun FootprintsTab(vm: SearchViewModel) {
+     var opened by remember { mutableStateOf<FootprintUi?>(null) }
+ 
+-    Column(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
++    Column(modifier = Modifier.fillMaxSize()) {
+         Row(
+-            modifier = Modifier.fillMaxWidth().padding(top = 16.dp, bottom = 12.dp),
++            modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp, top = 8.dp),
+             horizontalArrangement = Arrangement.SpaceBetween,
+             verticalAlignment = Alignment.CenterVertically,
+         ) {
+@@ -72,52 +72,58 @@ fun FootprintsTab(vm: SearchViewModel) {
+                 Text(
+                     text = "还没有足迹，点开搜索结果会自动记录",
+                     color = MiuixTheme.colorScheme.secondary,
++                    fontSize = 14.sp,
+                 )
+             }
+         } else {
+             LazyColumn(
+-                verticalArrangement = Arrangement.spacedBy(12.dp),
++                modifier = Modifier.fillMaxSize(),
+                 contentPadding = PaddingValues(bottom = 16.dp),
+             ) {
+                 items(vm.footprints, key = { it.url }) { f ->
+-                    Card(
+-                        onClick = { opened = f },
+-                        insideMargin = PaddingValues(12.dp),
+-                    ) {
+-                        Row(verticalAlignment = Alignment.CenterVertically) {
+-                            Column(modifier = Modifier.weight(1f)) {
++                    val asResult = SearchResultUi(
++                        title = f.title,
++                        url = f.url,
++                        size = "",
++                        time = formatFootprintTime(f.clickedAt),
++                        source = f.source,
++                        kind = f.kind,
++                    )
++                    Column {
++                        Row(
++                            modifier = Modifier.fillMaxWidth()
++                                .clickable { opened = f }
++                                .padding(horizontal = 16.dp, vertical = 12.dp),
++                            verticalAlignment = Alignment.CenterVertically,
++                        ) {
++                            Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
+                                 Text(
+                                     text = f.title,
+                                     maxLines = 2,
+                                     overflow = TextOverflow.Ellipsis,
+                                     fontWeight = FontWeight.Medium,
+-                                    fontSize = 14.sp,
+-                                )
+-                                val t = formatFootprintTime(f.clickedAt)
+-                                val sub = if (t.isNotEmpty()) "${f.source} · $t" else f.source
+-                                Text(
+-                                    text = sub,
+-                                    fontSize = 12.sp,
+-                                    color = MiuixTheme.colorScheme.secondary,
+-                                    maxLines = 1,
+-                                    overflow = TextOverflow.Ellipsis,
+-                                    modifier = Modifier.padding(top = 4.dp),
++                                    fontSize = 15.sp,
++                                    lineHeight = 20.sp,
+                                 )
++                                Box(modifier = Modifier.padding(top = 6.dp)) {
++                                    ResultMetaLine(asResult)
++                                }
+                             }
+                             TextButton(
+                                 text = "删除",
+                                 onClick = { vm.removeFootprint(f.url) },
+                             )
+                         }
++                        ResultDivider()
+                     }
+                 }
+             }
+         }
+     }
+ 
+-    // 点足迹条目：走详情弹窗（可复制/打开/收藏），不再重复记录
++    // 点足迹条目：走详情弹层（可复制/打开/收藏），不再重复记录
+     opened?.let { f ->
+-        ResultDialog(
++        ResultSheet(
+             result = SearchResultUi(
+                 title = f.title,
+                 url = f.url,
+diff --git a/android/app/src/main/java/dev/rulesearch/app/ui/MineScreen.kt b/android/app/src/main/java/dev/rulesearch/app/ui/MineScreen.kt
+new file mode 100644
+index 0000000..dfdf291
+--- /dev/null
++++ b/android/app/src/main/java/dev/rulesearch/app/ui/MineScreen.kt
+@@ -0,0 +1,230 @@
++package dev.rulesearch.app.ui
++
++import android.content.Intent
++import androidx.activity.compose.BackHandler
++import androidx.compose.animation.AnimatedContent
++import androidx.compose.animation.core.tween
++import androidx.compose.animation.fadeIn
++import androidx.compose.animation.fadeOut
++import androidx.compose.animation.togetherWith
++import androidx.compose.foundation.clickable
++import androidx.compose.foundation.layout.Arrangement
++import androidx.compose.foundation.layout.Box
++import androidx.compose.foundation.layout.Column
++import androidx.compose.foundation.layout.PaddingValues
++import androidx.compose.foundation.layout.Row
++import androidx.compose.foundation.layout.fillMaxSize
++import androidx.compose.foundation.layout.fillMaxWidth
++import androidx.compose.foundation.layout.padding
++import androidx.compose.foundation.shape.RoundedCornerShape
++import androidx.compose.runtime.Composable
++import androidx.compose.runtime.getValue
++import androidx.compose.runtime.mutableStateOf
++import androidx.compose.runtime.remember
++import androidx.compose.runtime.setValue
++import androidx.compose.ui.Alignment
++import androidx.compose.ui.Modifier
++import androidx.compose.ui.draw.clip
++import androidx.compose.ui.platform.LocalContext
++import androidx.compose.ui.text.font.FontWeight
++import androidx.compose.ui.text.style.TextOverflow
++import androidx.compose.ui.unit.dp
++import androidx.compose.ui.unit.sp
++import androidx.core.net.toUri
++import dev.rulesearch.app.SearchViewModel
++import top.yukonga.miuix.kmp.basic.Card
++import top.yukonga.miuix.kmp.basic.Text
++import top.yukonga.miuix.kmp.theme.MiuixTheme
++
++/** "我的"页（底部 dock 的"我的"标签）：足迹 / 搜索源 / 内容过滤 / 关于，二级页面结构。 */
++@Composable
++fun MineTab(vm: SearchViewModel) {
++    var page by remember { mutableStateOf<String?>(null) } // null=菜单
++
++    BackHandler(enabled = page != null) { page = null }
++
++    AnimatedContent(
++        targetState = page,
++        transitionSpec = { fadeIn(tween(220)).togetherWith(fadeOut(tween(180))) },
++        label = "mine_nav",
++    ) { p ->
++        when (p) {
++            "footprints" -> MineSubPage(onBack = { page = null }) { FootprintsTab(vm = vm) }
++            "rules" -> MineSubPage(onBack = { page = null }) { ManageTab(vm = vm) }
++            "blocklist" -> MineSubPage(onBack = { page = null }) { BlocklistPage(vm = vm) }
++            "about" -> MineSubPage(onBack = { page = null }) { AboutPage() }
++            else -> MineMenu(
++                vm = vm,
++                onFootprints = { page = "footprints" },
++                onRules = { page = "rules" },
++                onBlocklist = { page = "blocklist" },
++                onAbout = { page = "about" },
++            )
++        }
++    }
++}
++
++/** "我的"一级菜单。 */
++@Composable
++private fun MineMenu(
++    vm: SearchViewModel,
++    onFootprints: () -> Unit,
++    onRules: () -> Unit,
++    onBlocklist: () -> Unit,
++    onAbout: () -> Unit,
++) {
++    // 一键检测跑过才显示"正常 x/y"
++    val health = vm.ruleHealth
++    val healthSub = if (health.isNotEmpty()) {
++        " · ${health.count { it.value.ok }}/${health.size} 正常"
++    } else {
++        ""
++    }
++    Column(
++        modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
++        verticalArrangement = Arrangement.spacedBy(12.dp),
++    ) {
++        Text(
++            text = "我的",
++            fontWeight = FontWeight.Bold,
++            fontSize = 32.sp,
++            modifier = Modifier.padding(top = 16.dp, bottom = 4.dp),
++        )
++        Card(
++            onClick = onFootprints,
++            insideMargin = PaddingValues(horizontal = 14.dp, vertical = 12.dp),
++        ) {
++            MineMenuRow(
++                title = "足迹",
++                subtitle = if (vm.footprints.isEmpty()) "点开过的结果会记录在这里"
++                else "${vm.footprints.size} 条浏览记录",
++            )
++        }
++        Card(
++            onClick = onRules,
++            insideMargin = PaddingValues(horizontal = 14.dp, vertical = 12.dp),
++        ) {
++            MineMenuRow(
++                title = "搜索源设置",
++                subtitle = "${vm.rules.size} 条规则，可开关、导入、检测、更新$healthSub",
++            )
++        }
++        Card(
++            onClick = onBlocklist,
++            insideMargin = PaddingValues(horizontal = 14.dp, vertical = 12.dp),
++        ) {
++            MineMenuRow(
++                title = "内容过滤",
++                subtitle = "${vm.blockedWords.size} 个过滤词 · 累计已过滤 ${vm.totalFiltered} 条",
++            )
++        }
++        Card(
++            onClick = onAbout,
++            insideMargin = PaddingValues(horizontal = 14.dp, vertical = 12.dp),
++        ) {
++            MineMenuRow(
++                title = "关于",
++                subtitle = "RuleSearch · 规则引擎式网盘 / 磁力搜索",
++            )
++        }
++    }
++}
++
++@Composable
++private fun MineMenuRow(title: String, subtitle: String) {
++    Row(
++        modifier = Modifier.fillMaxWidth(),
++        horizontalArrangement = Arrangement.SpaceBetween,
++        verticalAlignment = Alignment.CenterVertically,
++    ) {
++        Column(modifier = Modifier.weight(1f)) {
++            Text(
++                text = title,
++                fontWeight = FontWeight.Medium,
++                fontSize = 15.sp,
++            )
++            Text(
++                text = subtitle,
++                fontSize = 12.sp,
++                color = MiuixTheme.colorScheme.secondary,
++                maxLines = 1,
++                overflow = TextOverflow.Ellipsis,
++                modifier = Modifier.padding(top = 2.dp),
++            )
++        }
++        Text(
++            text = "〉",
++            fontSize = 14.sp,
++            color = MiuixTheme.colorScheme.secondary,
++        )
++    }
++}
++
++/** "我的"二级页面：顶部返回行 + 内容。 */
++@Composable
++private fun MineSubPage(onBack: () -> Unit, content: @Composable () -> Unit) {
++    Column(modifier = Modifier.fillMaxSize()) {
++        Row(
++            modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
++            verticalAlignment = Alignment.CenterVertically,
++        ) {
++            Text(
++                text = "〈 返回",
++                color = MiuixTheme.colorScheme.primary,
++                fontSize = 15.sp,
++                modifier = Modifier
++                    .clip(RoundedCornerShape(8.dp))
++                    .clickable(onClick = onBack)
++                    .padding(horizontal = 12.dp, vertical = 8.dp),
++            )
++        }
++        Box(modifier = Modifier.fillMaxSize().weight(1f)) {
++            content()
++        }
++    }
++}
++
++/** 关于页。 */
++@Composable
++private fun AboutPage() {
++    val context = LocalContext.current
++    Column(
++        modifier = Modifier.fillMaxSize().padding(horizontal = 24.dp),
++        horizontalAlignment = Alignment.CenterHorizontally,
++        verticalArrangement = Arrangement.spacedBy(8.dp),
++    ) {
++        Text(
++            text = "RuleSearch",
++            fontWeight = FontWeight.Bold,
++            fontSize = 24.sp,
++            modifier = Modifier.padding(top = 48.dp),
++        )
++        Text(
++            text = "规则引擎式网盘 / 磁力聚合搜索",
++            fontSize = 14.sp,
++            color = MiuixTheme.colorScheme.secondary,
++        )
++        Text(
++            text = "手机端独立运行，不依赖电脑",
++            fontSize = 14.sp,
++            color = MiuixTheme.colorScheme.secondary,
++            modifier = Modifier.padding(bottom = 16.dp),
++        )
++        Text(
++            text = "github.com/Maomaokuxs/rulesearch",
++            fontSize = 14.sp,
++            color = MiuixTheme.colorScheme.primary,
++            modifier = Modifier
++                .clip(RoundedCornerShape(8.dp))
++                .clickable {
++                    context.startActivity(
++                        Intent(
++                            Intent.ACTION_VIEW,
++                            "https://github.com/Maomaokuxs/rulesearch".toUri(),
++                        ),
++                    )
++                }
++                .padding(horizontal = 12.dp, vertical = 8.dp),
++        )
++    }
++}
+diff --git a/android/app/src/main/java/dev/rulesearch/app/ui/ResultDialog.kt b/android/app/src/main/java/dev/rulesearch/app/ui/ResultDialog.kt
+deleted file mode 100644
+index 3149e85..0000000
+--- a/android/app/src/main/java/dev/rulesearch/app/ui/ResultDialog.kt
++++ /dev/null
+@@ -1,282 +0,0 @@
+-package dev.rulesearch.app.ui
+-
+-import android.content.res.Configuration
+-import android.widget.Toast
+-import androidx.compose.foundation.combinedClickable
+-import androidx.compose.foundation.layout.Arrangement
+-import androidx.compose.foundation.layout.Box
+-import androidx.compose.foundation.layout.Column
+-import androidx.compose.foundation.layout.PaddingValues
+-import androidx.compose.foundation.layout.Row
+-import androidx.compose.foundation.layout.fillMaxWidth
+-import androidx.compose.foundation.layout.padding
+-import androidx.compose.foundation.layout.size
+-import androidx.compose.foundation.shape.CircleShape
+-import androidx.compose.foundation.text.KeyboardOptions
+-import androidx.compose.runtime.Composable
+-import androidx.compose.runtime.LaunchedEffect
+-import androidx.compose.runtime.getValue
+-import androidx.compose.runtime.mutableStateOf
+-import androidx.compose.runtime.remember
+-import androidx.compose.runtime.setValue
+-import androidx.compose.ui.Alignment
+-import androidx.compose.ui.Modifier
+-import androidx.compose.ui.draw.clip
+-import androidx.compose.ui.platform.LocalClipboardManager
+-import androidx.compose.ui.platform.LocalConfiguration
+-import androidx.compose.ui.platform.LocalContext
+-import androidx.compose.ui.res.painterResource
+-import androidx.compose.ui.text.AnnotatedString
+-import androidx.compose.ui.text.font.FontWeight
+-import androidx.compose.ui.text.input.ImeAction
+-import androidx.compose.ui.text.style.TextOverflow
+-import androidx.compose.ui.unit.dp
+-import androidx.compose.ui.unit.sp
+-import androidx.compose.ui.window.Dialog
+-import androidx.compose.ui.window.DialogProperties
+-import androidx.compose.material.icons.Icons
+-import androidx.compose.material.icons.filled.Favorite
+-import androidx.compose.material.icons.filled.FavoriteBorder
+-import androidx.compose.material3.Icon
+-import dev.rulesearch.app.LinkStatus
+-import dev.rulesearch.app.LinkType
+-import dev.rulesearch.app.LinkTypes
+-import dev.rulesearch.app.R
+-import dev.rulesearch.app.SearchResultUi
+-import dev.rulesearch.app.SearchViewModel
+-import dev.rulesearch.app.checkLink
+-import top.yukonga.miuix.kmp.basic.Button
+-import top.yukonga.miuix.kmp.basic.Card
+-import top.yukonga.miuix.kmp.basic.Text
+-import top.yukonga.miuix.kmp.basic.TextButton
+-import top.yukonga.miuix.kmp.basic.TextField
+-import top.yukonga.miuix.kmp.theme.MiuixTheme
+-
+-/** 点卡片后的弹窗：识别网盘类型、检测链接是否可访问，再决定跳转。 */
+-@Composable
+-fun ResultDialog(
+-    result: SearchResultUi,
+-    onDismiss: () -> Unit,
+-    vm: SearchViewModel? = null, // 传了才显示收藏按钮
+-) {
+-    val context = LocalContext.current
+-    val clipboard = LocalClipboardManager.current
+-    val linkType: LinkType = remember(result) { LinkTypes.detect(result.url, result.title) }
+-    var status by remember(result) { mutableStateOf<LinkStatus>(LinkStatus.Checking) }
+-    var showNoDl by remember { mutableStateOf(false) }
+-    val isMagnet = linkType == LinkTypes.MAGNET
+-
+-    LaunchedEffect(result) {
+-        // 一键检测跑过就有缓存，直接用，不重复请求
+-        val cached = vm?.linkStatus?.get(result.url)
+-        status = when {
+-            linkType == LinkTypes.MAGNET -> LinkStatus.Skipped
+-            cached != null -> if (cached) LinkStatus.Reachable else LinkStatus.Unreachable
+-            else -> checkLink(result.url)
+-        }
+-    }
+-
+-    val statusText = when (status) {
+-        LinkStatus.Checking -> "链接检测中…"
+-        LinkStatus.Reachable -> "链接可访问"
+-        LinkStatus.Unreachable -> "链接无法访问"
+-        LinkStatus.Skipped -> "磁力链接，无需检测"
+-    }
+-    val statusColor = when (status) {
+-        LinkStatus.Reachable -> MiuixTheme.colorScheme.primary
+-        LinkStatus.Unreachable -> MiuixTheme.colorScheme.error
+-        else -> MiuixTheme.colorScheme.secondary
+-    }
+-
+-    Dialog(
+-        onDismissRequest = onDismiss,
+-        properties = DialogProperties(usePlatformDefaultWidth = false),
+-    ) {
+-        Card(
+-            modifier = Modifier.fillMaxWidth().padding(horizontal = 28.dp),
+-            insideMargin = PaddingValues(20.dp),
+-        ) {
+-            Text(
+-                text = result.title,
+-                fontWeight = FontWeight.Medium,
+-                fontSize = 16.sp,
+-                maxLines = 3,
+-                overflow = TextOverflow.Ellipsis,
+-            )
+-            Text(
+-                text = "${linkType.label} · $statusText",
+-                fontSize = 13.sp,
+-                color = statusColor,
+-                modifier = Modifier.padding(top = 8.dp),
+-            )
+-            Text(
+-                text = result.url,
+-                fontSize = 12.sp,
+-                color = MiuixTheme.colorScheme.secondary,
+-                maxLines = 2,
+-                overflow = TextOverflow.Ellipsis,
+-                modifier = Modifier.padding(top = 8.dp),
+-            )
+-            // 图标按钮行：横屏右对齐，竖屏居中；长按显示文字说明
+-            var showAddFilter by remember { mutableStateOf(false) }
+-            val isLandscape =
+-                LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
+-            Row(
+-                horizontalArrangement = Arrangement.spacedBy(
+-                    4.dp,
+-                    if (isLandscape) Alignment.End else Alignment.CenterHorizontally,
+-                ),
+-                verticalAlignment = Alignment.CenterVertically,
+-                modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
+-            ) {
+-                if (vm != null) {
+-                    // 一键添加过滤词
+-                    DialogIconButton(
+-                        resId = R.drawable.ic_block,
+-                        label = "添加过滤词",
+-                        onClick = { showAddFilter = true },
+-                    )
+-                }
+-                DialogIconButton(
+-                    resId = R.drawable.ic_copy,
+-                    label = "复制链接",
+-                    onClick = {
+-                        clipboard.setText(AnnotatedString(result.url))
+-                        Toast.makeText(context, "链接已复制", Toast.LENGTH_SHORT).show()
+-                    },
+-                )
+-                if (vm != null) {
+-                    val favored = vm.isFavorite(result.url)
+-                    DialogIconButton(
+-                        imageVector = if (favored) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
+-                        label = if (favored) "取消收藏" else "收藏",
+-                        tint = if (favored) MiuixTheme.colorScheme.primary
+-                        else MiuixTheme.colorScheme.onSurface,
+-                        onClick = {
+-                            vm.toggleFavorite(result)
+-                            Toast.makeText(
+-                                context,
+-                                if (favored) "已取消收藏" else "已收藏",
+-                                Toast.LENGTH_SHORT,
+-                            ).show()
+-                        },
+-                    )
+-                }
+-                // 最常用的打开链接放最右
+-                DialogIconButton(
+-                    resId = if (isMagnet) R.drawable.ic_download else R.drawable.ic_open_in_new,
+-                    label = if (isMagnet) "用下载器打开" else "在浏览器打开",
+-                    onClick = {
+-                        // 磁力：有下载器弹选择器，没有则提示安装；网盘走浏览器
+-                        if (openLink(context, result.url) { showNoDl = true }) {
+-                            onDismiss()
+-                        }
+-                    },
+-                )
+-            }
+-            if (showAddFilter && vm != null) {
+-                AddFilterWordDialog(
+-                    onDismiss = { showAddFilter = false },
+-                    onAdd = { word ->
+-                        vm.addBlockedWord(word)
+-                        Toast.makeText(context, "已添加过滤词：$word", Toast.LENGTH_SHORT).show()
+-                        showAddFilter = false
+-                    },
+-                )
+-            }
+-        }
+-    }
+-
+-    if (showNoDl) {
+-        NoDownloaderDialog(
+-            link = result.url,
+-            onDismiss = {
+-                showNoDl = false
+-                onDismiss()
+-            },
+-        )
+-    }
+-}
+-
+-/** 弹窗里的图标按钮：点击执行，长按 Toast 显示文字说明。 */
+-@Composable
+-private fun DialogIconButton(
+-    label: String,
+-    onClick: () -> Unit,
+-    resId: Int? = null,
+-    imageVector: androidx.compose.ui.graphics.vector.ImageVector? = null,
+-    tint: androidx.compose.ui.graphics.Color = MiuixTheme.colorScheme.onSurface,
+-) {
+-    val context = LocalContext.current
+-    Box(
+-        modifier = Modifier
+-            .size(48.dp)
+-            .clip(CircleShape)
+-            .combinedClickable(
+-                onClick = onClick,
+-                onLongClick = {
+-                    Toast.makeText(context, label, Toast.LENGTH_SHORT).show()
+-                },
+-            ),
+-        contentAlignment = Alignment.Center,
+-    ) {
+-        if (resId != null) {
+-            Icon(
+-                painter = painterResource(id = resId),
+-                contentDescription = label,
+-                tint = tint,
+-                modifier = Modifier.size(24.dp),
+-            )
+-        } else if (imageVector != null) {
+-            Icon(
+-                imageVector = imageVector,
+-                contentDescription = label,
+-                tint = tint,
+-                modifier = Modifier.size(24.dp),
+-            )
+-        }
+-    }
+-}
+-
+-/** 一键添加过滤词的小弹窗。 */
+-@Composable
+-private fun AddFilterWordDialog(onDismiss: () -> Unit, onAdd: (String) -> Unit) {
+-    var input by remember { mutableStateOf("") }
+-    Dialog(onDismissRequest = onDismiss) {
+-        Card(
+-            modifier = Modifier.fillMaxWidth().padding(horizontal = 28.dp),
+-            insideMargin = PaddingValues(20.dp),
+-        ) {
+-            Text(
+-                text = "添加过滤词",
+-                fontWeight = FontWeight.Bold,
+-                fontSize = 16.sp,
+-            )
+-            Text(
+-                text = "标题含有该词的结果会被过滤",
+-                fontSize = 13.sp,
+-                color = MiuixTheme.colorScheme.secondary,
+-                modifier = Modifier.padding(top = 4.dp),
+-            )
+-            TextField(
+-                value = input,
+-                onValueChange = { input = it },
+-                label = "过滤词",
+-                useLabelAsPlaceholder = true,
+-                modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
+-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+-            )
+-            Row(
+-                horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
+-                modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
+-            ) {
+-                TextButton(text = "取消", onClick = onDismiss)
+-                Button(
+-                    onClick = { if (input.isNotBlank()) onAdd(input.trim()) },
+-                ) {
+-                    Text("添加")
+-                }
+-            }
+-        }
+-    }
+-}
+diff --git a/android/app/src/main/java/dev/rulesearch/app/ui/ResultRow.kt b/android/app/src/main/java/dev/rulesearch/app/ui/ResultRow.kt
+new file mode 100644
+index 0000000..9fb49d1
+--- /dev/null
++++ b/android/app/src/main/java/dev/rulesearch/app/ui/ResultRow.kt
+@@ -0,0 +1,171 @@
++package dev.rulesearch.app.ui
++
++import androidx.compose.foundation.background
++import androidx.compose.foundation.combinedClickable
++import androidx.compose.foundation.layout.Box
++import androidx.compose.foundation.layout.Column
++import androidx.compose.foundation.layout.Row
++import androidx.compose.foundation.layout.Spacer
++import androidx.compose.foundation.layout.fillMaxWidth
++import androidx.compose.foundation.layout.height
++import androidx.compose.foundation.layout.padding
++import androidx.compose.foundation.layout.size
++import androidx.compose.foundation.layout.width
++import androidx.compose.foundation.shape.CircleShape
++import androidx.compose.material.icons.Icons
++import androidx.compose.material.icons.filled.Check
++import androidx.compose.material3.Icon
++import androidx.compose.runtime.Composable
++import androidx.compose.ui.Alignment
++import androidx.compose.ui.Modifier
++import androidx.compose.ui.draw.clip
++import androidx.compose.ui.graphics.Color
++import androidx.compose.ui.text.AnnotatedString
++import androidx.compose.ui.text.SpanStyle
++import androidx.compose.ui.text.buildAnnotatedString
++import androidx.compose.ui.text.font.FontWeight
++import androidx.compose.ui.text.style.TextOverflow
++import androidx.compose.ui.unit.dp
++import androidx.compose.ui.unit.sp
++import dev.rulesearch.app.SearchResultUi
++import dev.rulesearch.app.panBrandOf
++import top.yukonga.miuix.kmp.theme.MiuixTheme
++
++/** 标题里的关键词高亮：命中部分染主色加粗，其余不动。 */
++fun highlightTitle(title: String, keyword: String, highlight: Color): AnnotatedString {
++    val kw = keyword.trim()
++    if (kw.isEmpty()) return AnnotatedString(title)
++    return buildAnnotatedString {
++        append(title)
++        var i = title.indexOf(kw, ignoreCase = true)
++        while (i >= 0) {
++            addStyle(
++                SpanStyle(color = highlight, fontWeight = FontWeight.Medium),
++                i,
++                i + kw.length,
++            )
++            i = title.indexOf(kw, i + kw.length, ignoreCase = true)
++        }
++    }
++}
++
++/** 结果行第二行：品牌圆点 + 品牌名/来源 · 大小/时间。磁力没有品牌，显示来源站点。 */
++@Composable
++fun ResultMetaLine(r: SearchResultUi) {
++    val brand = panBrandOf(r.url)
++    Row(verticalAlignment = Alignment.CenterVertically) {
++        if (brand != null) {
++            Box(
++                modifier = Modifier.size(8.dp).clip(CircleShape)
++                    .background(brandColor(brand)),
++            )
++            Spacer(Modifier.width(6.dp))
++            TextLine(brandLabel(brand))
++        } else {
++            Box(
++                modifier = Modifier.size(8.dp).clip(CircleShape)
++                    .background(MiuixTheme.colorScheme.secondary.copy(alpha = 0.45f)),
++            )
++            Spacer(Modifier.width(6.dp))
++            TextLine(r.source)
++        }
++        val meta = r.size.ifEmpty { r.time }
++        if (meta.isNotEmpty()) {
++            TextLine(" · $meta")
++        }
++    }
++}
++
++@Composable
++private fun TextLine(s: String) {
++    top.yukonga.miuix.kmp.basic.Text(
++        text = s,
++        fontSize = 12.sp,
++        color = MiuixTheme.colorScheme.secondary,
++        maxLines = 1,
++        overflow = TextOverflow.Ellipsis,
++    )
++}
++
++/** 极简结果行：标题（关键词高亮）+ 元信息行；右侧按状态显示 有效/失效 或多选勾选圈。 */
++@Composable
++fun ResultRow(
++    r: SearchResultUi,
++    keyword: String,
++    selectionMode: Boolean = false,
++    selected: Boolean = false,
++    /** null=未检测，true=可访问，false=疑似失效 */
++    linkOk: Boolean? = null,
++    onClick: () -> Unit,
++    onLongClick: () -> Unit = {},
++) {
++    val primary = MiuixTheme.colorScheme.primary
++    Column {
++        Row(
++            modifier = Modifier.fillMaxWidth()
++                .combinedClickable(onClick = onClick, onLongClick = onLongClick)
++                .padding(horizontal = 16.dp, vertical = 12.dp),
++            verticalAlignment = Alignment.CenterVertically,
++        ) {
++            Column(
++                modifier = Modifier.weight(1f)
++                    .padding(end = if (selectionMode || linkOk != null) 12.dp else 0.dp),
++            ) {
++                top.yukonga.miuix.kmp.basic.Text(
++                    text = highlightTitle(r.title, keyword, primary),
++                    fontSize = 15.sp,
++                    fontWeight = FontWeight.Medium,
++                    lineHeight = 20.sp,
++                    maxLines = 2,
++                    overflow = TextOverflow.Ellipsis,
++                )
++                Box(modifier = Modifier.padding(top = 6.dp)) {
++                    ResultMetaLine(r)
++                }
++            }
++            when {
++                selectionMode -> SelectCircle(selected = selected)
++                linkOk != null -> top.yukonga.miuix.kmp.basic.Text(
++                    text = if (linkOk) "有效" else "失效",
++                    fontSize = 12.sp,
++                    color = if (linkOk) COLOR_REACHABLE else MiuixTheme.colorScheme.error,
++                    maxLines = 1,
++                )
++            }
++        }
++        ResultDivider()
++    }
++}
++
++/** 行与行之间的细分割线。 */
++@Composable
++fun ResultDivider() {
++    Box(
++        modifier = Modifier.fillMaxWidth()
++            .padding(horizontal = 16.dp)
++            .height(0.5.dp)
++            .background(MiuixTheme.colorScheme.secondary.copy(alpha = 0.15f)),
++    )
++}
++
++/** 多选模式右端的勾选圈。 */
++@Composable
++fun SelectCircle(selected: Boolean) {
++    Box(
++        modifier = Modifier.size(22.dp).clip(CircleShape)
++            .background(
++                if (selected) MiuixTheme.colorScheme.primary
++                else MiuixTheme.colorScheme.surfaceContainerHighest,
++            ),
++        contentAlignment = Alignment.Center,
++    ) {
++        if (selected) {
++            Icon(
++                imageVector = Icons.Filled.Check,
++                contentDescription = null,
++                tint = MiuixTheme.colorScheme.onPrimary,
++                modifier = Modifier.size(14.dp),
++            )
++        }
++    }
++}
+diff --git a/android/app/src/main/java/dev/rulesearch/app/ui/ResultSheet.kt b/android/app/src/main/java/dev/rulesearch/app/ui/ResultSheet.kt
+new file mode 100644
+index 0000000..0bae063
+--- /dev/null
++++ b/android/app/src/main/java/dev/rulesearch/app/ui/ResultSheet.kt
+@@ -0,0 +1,267 @@
++package dev.rulesearch.app.ui
++
++import android.content.Intent
++import android.widget.Toast
++import androidx.compose.foundation.background
++import androidx.compose.foundation.clickable
++import androidx.compose.foundation.layout.Arrangement
++import androidx.compose.foundation.layout.Box
++import androidx.compose.foundation.layout.Column
++import androidx.compose.foundation.layout.Row
++import androidx.compose.foundation.layout.fillMaxWidth
++import androidx.compose.foundation.layout.padding
++import androidx.compose.foundation.layout.size
++import androidx.compose.foundation.shape.CircleShape
++import androidx.compose.foundation.shape.RoundedCornerShape
++import androidx.compose.material.icons.Icons
++import androidx.compose.material.icons.filled.Favorite
++import androidx.compose.material.icons.filled.FavoriteBorder
++import androidx.compose.material3.ExperimentalMaterial3Api
++import androidx.compose.material3.Icon
++import androidx.compose.material3.ModalBottomSheet
++import androidx.compose.material3.rememberModalBottomSheetState
++import androidx.compose.runtime.Composable
++import androidx.compose.runtime.LaunchedEffect
++import androidx.compose.runtime.getValue
++import androidx.compose.runtime.mutableStateOf
++import androidx.compose.runtime.remember
++import androidx.compose.runtime.rememberCoroutineScope
++import androidx.compose.runtime.setValue
++import androidx.compose.ui.Alignment
++import androidx.compose.ui.Modifier
++import androidx.compose.ui.draw.clip
++import androidx.compose.ui.platform.LocalClipboardManager
++import androidx.compose.ui.platform.LocalContext
++import androidx.compose.ui.text.AnnotatedString
++import androidx.compose.ui.text.font.FontWeight
++import androidx.compose.ui.text.style.TextOverflow
++import androidx.compose.ui.unit.dp
++import androidx.compose.ui.unit.sp
++import dev.rulesearch.app.LinkStatus
++import dev.rulesearch.app.LinkTypes
++import dev.rulesearch.app.SearchResultUi
++import dev.rulesearch.app.SearchViewModel
++import dev.rulesearch.app.checkLink
++import kotlinx.coroutines.launch
++import top.yukonga.miuix.kmp.basic.Text
++import top.yukonga.miuix.kmp.theme.MiuixTheme
++
++/** 从标题里抠提取码：「提取码：8x4k」「密码 1234」这类常见写法。 */
++fun extractCode(title: String): String? =
++    Regex("(提取码|访问码|密码|取件码|code)[：:\\s]*([A-Za-z0-9]{4,8})", RegexOption.IGNORE_CASE)
++        .find(title)
++        ?.groupValues?.getOrNull(2)
++        ?.takeIf { it.any(Char::isDigit) || it.length >= 4 }
++
++/** 点结果行后的底部详情弹层：只做"拿走"这一件事。 */
++@OptIn(ExperimentalMaterial3Api::class)
++@Composable
++fun ResultSheet(
++    result: SearchResultUi,
++    onDismiss: () -> Unit,
++    vm: SearchViewModel? = null,
++) {
++    val context = LocalContext.current
++    val clipboard = LocalClipboardManager.current
++    val scope = rememberCoroutineScope()
++    val linkType = remember(result) { LinkTypes.detect(result.url, result.title) }
++    var status by remember(result) { mutableStateOf<LinkStatus>(LinkStatus.Checking) }
++    var checking by remember(result) { mutableStateOf(false) }
++    var showNoDl by remember { mutableStateOf(false) }
++    val isMagnet = linkType == LinkTypes.MAGNET
++    val code = remember(result) { extractCode(result.title) }
++
++    fun toast(msg: String) =
++        Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
++
++    // 打开即检测：用一键检测的缓存，不重复请求
++    LaunchedEffect(result) {
++        val cached = vm?.linkStatus?.get(result.url)
++        status = when {
++            isMagnet -> LinkStatus.Skipped
++            cached != null -> if (cached) LinkStatus.Reachable else LinkStatus.Unreachable
++            else -> checkLink(result.url)
++        }
++    }
++
++    fun recheck() {
++        if (isMagnet || checking) return
++        scope.launch {
++            checking = true
++            status = checkLink(result.url)
++            checking = false
++        }
++    }
++
++    val statusText = when (status) {
++        LinkStatus.Checking -> "链接检测中…"
++        LinkStatus.Reachable -> "链接可访问"
++        LinkStatus.Unreachable -> "链接无法访问"
++        LinkStatus.Skipped -> "磁力链接，无需检测"
++    }
++    val statusColor = when (status) {
++        LinkStatus.Reachable -> COLOR_REACHABLE
++        LinkStatus.Unreachable -> MiuixTheme.colorScheme.error
++        else -> MiuixTheme.colorScheme.secondary
++    }
++
++    ModalBottomSheet(
++        onDismissRequest = onDismiss,
++        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
++        containerColor = MiuixTheme.colorScheme.surface,
++    ) {
++        Column(
++            modifier = Modifier.fillMaxWidth()
++                .padding(horizontal = 20.dp)
++                .padding(bottom = 28.dp),
++            verticalArrangement = Arrangement.spacedBy(12.dp),
++        ) {
++            // 标题 + 收藏星标
++            Row(verticalAlignment = Alignment.Top) {
++                Text(
++                    text = result.title,
++                    fontSize = 15.sp,
++                    fontWeight = FontWeight.Medium,
++                    lineHeight = 20.sp,
++                    maxLines = 3,
++                    overflow = TextOverflow.Ellipsis,
++                    modifier = Modifier.weight(1f),
++                )
++                if (vm != null) {
++                    val favored = vm.isFavorite(result.url)
++                    Box(
++                        modifier = Modifier.size(40.dp).clip(CircleShape)
++                            .clickable {
++                                vm.toggleFavorite(result)
++                                toast(if (favored) "已取消收藏" else "已收藏")
++                            },
++                        contentAlignment = Alignment.Center,
++                    ) {
++                        Icon(
++                            imageVector = if (favored) Icons.Filled.Favorite
++                            else Icons.Filled.FavoriteBorder,
++                            contentDescription = if (favored) "取消收藏" else "收藏",
++                            tint = if (favored) MiuixTheme.colorScheme.primary
++                            else MiuixTheme.colorScheme.secondary,
++                            modifier = Modifier.size(22.dp),
++                        )
++                    }
++                }
++            }
++            // 元信息：类型 · 大小/时间 · 来源 · 存活状态
++            val meta = result.size.ifEmpty { result.time }
++            Text(
++                text = buildString {
++                    append(linkType.label)
++                    if (meta.isNotEmpty()) append(" · $meta")
++                    append(" · ${result.source}")
++                    append(" · $statusText")
++                },
++                fontSize = 12.sp,
++                color = statusColor,
++                maxLines = 2,
++                overflow = TextOverflow.Ellipsis,
++            )
++            // 链接行：可点 + 复制
++            Row(verticalAlignment = Alignment.CenterVertically) {
++                Text(
++                    text = result.url,
++                    fontSize = 14.sp,
++                    color = MiuixTheme.colorScheme.primary,
++                    maxLines = 1,
++                    overflow = TextOverflow.Ellipsis,
++                    modifier = Modifier.weight(1f),
++                )
++                SheetTextButton(label = "复制") {
++                    clipboard.setText(AnnotatedString(result.url))
++                    toast("链接已复制")
++                }
++            }
++            // 提取码：单独大字展示，点按复制
++            if (code != null) {
++                Column(
++                    horizontalAlignment = Alignment.CenterHorizontally,
++                    modifier = Modifier.fillMaxWidth()
++                        .clip(RoundedCornerShape(16.dp))
++                        .background(MiuixTheme.colorScheme.surfaceContainerHighest)
++                        .clickable {
++                            clipboard.setText(AnnotatedString(code))
++                            toast("提取码已复制")
++                        }
++                        .padding(vertical = 14.dp),
++                ) {
++                    Text(
++                        text = "提取码 · 点按复制",
++                        fontSize = 12.sp,
++                        color = MiuixTheme.colorScheme.secondary,
++                    )
++                    Text(
++                        text = code,
++                        fontSize = 20.sp,
++                        fontWeight = FontWeight.Medium,
++                        letterSpacing = 6.sp,
++                        modifier = Modifier.padding(top = 4.dp),
++                    )
++                }
++            }
++            // 操作行：打开 / 分享 / 检测有效性
++            Row(
++                horizontalArrangement = Arrangement.spacedBy(4.dp),
++                verticalAlignment = Alignment.CenterVertically,
++            ) {
++                SheetTextButton(
++                    label = if (isMagnet) "用下载器打开" else "打开链接",
++                    primary = true,
++                ) {
++                    if (openLink(context, result.url) { showNoDl = true }) {
++                        onDismiss()
++                    }
++                }
++                SheetTextButton(label = "分享") {
++                    val text = "${result.title}\n${result.url}"
++                    val intent = Intent(Intent.ACTION_SEND).apply {
++                        type = "text/plain"
++                        putExtra(Intent.EXTRA_TEXT, text)
++                    }
++                    context.startActivity(Intent.createChooser(intent, "分享"))
++                }
++                if (!isMagnet) {
++                    SheetTextButton(
++                        label = if (checking) "检测中…" else "检测有效性",
++                    ) { recheck() }
++                }
++            }
++        }
++    }
++
++    if (showNoDl) {
++        NoDownloaderDialog(
++            link = result.url,
++            onDismiss = {
++                showNoDl = false
++                onDismiss()
++            },
++        )
++    }
++}
++
++/** 弹层里的文字按钮：主操作染主色，其余默认色。 */
++@Composable
++private fun SheetTextButton(
++    label: String,
++    primary: Boolean = false,
++    onClick: () -> Unit,
++) {
++    Box(
++        modifier = Modifier.clip(RoundedCornerShape(8.dp))
++            .clickable(onClick = onClick)
++            .padding(horizontal = 12.dp, vertical = 10.dp),
++    ) {
++        Text(
++            text = label,
++            fontSize = 14.sp,
++            color = if (primary) MiuixTheme.colorScheme.primary
++            else MiuixTheme.colorScheme.onSurface,
++        )
++    }
++}
+diff --git a/android/app/src/main/java/dev/rulesearch/app/ui/SearchScreen.kt b/android/app/src/main/java/dev/rulesearch/app/ui/SearchScreen.kt
+index 46c469c..214c4ee 100644
+--- a/android/app/src/main/java/dev/rulesearch/app/ui/SearchScreen.kt
++++ b/android/app/src/main/java/dev/rulesearch/app/ui/SearchScreen.kt
+@@ -1,9 +1,13 @@
+ package dev.rulesearch.app.ui
+ 
+ import android.content.Intent
++import android.widget.Toast
+ import androidx.activity.compose.BackHandler
+ import androidx.compose.animation.AnimatedContent
+-import androidx.compose.animation.AnimatedVisibility
++import androidx.compose.animation.core.RepeatMode
++import androidx.compose.animation.core.animateFloat
++import androidx.compose.animation.core.infiniteRepeatable
++import androidx.compose.animation.core.rememberInfiniteTransition
+ import androidx.compose.animation.core.tween
+ import androidx.compose.animation.fadeIn
+ import androidx.compose.animation.fadeOut
+@@ -18,25 +22,22 @@ import androidx.compose.foundation.layout.Row
+ import androidx.compose.foundation.layout.fillMaxSize
+ import androidx.compose.foundation.layout.fillMaxWidth
+ import androidx.compose.foundation.layout.height
+-import androidx.compose.foundation.layout.heightIn
+ import androidx.compose.foundation.layout.padding
+ import androidx.compose.foundation.layout.size
+-import androidx.compose.foundation.lazy.grid.GridCells
+-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+-import androidx.compose.foundation.lazy.grid.items
+-import androidx.compose.foundation.rememberScrollState
++import androidx.compose.foundation.lazy.LazyColumn
++import androidx.compose.foundation.lazy.LazyRow
++import androidx.compose.foundation.lazy.items
+ import androidx.compose.foundation.shape.CircleShape
++import androidx.compose.foundation.shape.RoundedCornerShape
+ import androidx.compose.foundation.text.KeyboardActions
+ import androidx.compose.foundation.text.KeyboardOptions
+-import androidx.compose.foundation.verticalScroll
+ import androidx.compose.material.icons.Icons
+-import androidx.compose.material.icons.filled.Check
+ import androidx.compose.material.icons.filled.Close
+-import androidx.compose.material.icons.filled.List
+-import androidx.compose.material.icons.filled.MoreVert
+ import androidx.compose.material.icons.filled.Search
+-import androidx.compose.material.icons.filled.Share
++import androidx.compose.material3.ExperimentalMaterial3Api
+ import androidx.compose.material3.Icon
++import androidx.compose.material3.ModalBottomSheet
++import androidx.compose.material3.rememberModalBottomSheetState
+ import androidx.compose.runtime.Composable
+ import androidx.compose.runtime.LaunchedEffect
+ import androidx.compose.runtime.getValue
+@@ -47,19 +48,16 @@ import androidx.compose.ui.Alignment
+ import androidx.compose.ui.Modifier
+ import androidx.compose.ui.draw.clip
+ import androidx.compose.ui.focus.onFocusChanged
+-import androidx.compose.ui.graphics.vector.ImageVector
++import androidx.compose.ui.graphics.Color
+ import androidx.compose.ui.platform.LocalClipboardManager
+ import androidx.compose.ui.platform.LocalContext
+ import androidx.compose.ui.platform.LocalFocusManager
+-import androidx.compose.ui.state.ToggleableState
+ import androidx.compose.ui.text.AnnotatedString
+ import androidx.compose.ui.text.font.FontWeight
+ import androidx.compose.ui.text.input.ImeAction
+ import androidx.compose.ui.text.style.TextOverflow
+ import androidx.compose.ui.unit.dp
+ import androidx.compose.ui.unit.sp
+-import androidx.compose.ui.window.Dialog
+-import androidx.core.net.toUri
+ import dev.rulesearch.app.PAN_BRAND_DEFS
+ import dev.rulesearch.app.SearchResultUi
+ import dev.rulesearch.app.SearchViewModel
+@@ -67,29 +65,22 @@ import dev.rulesearch.app.SortMode
+ import kotlinx.coroutines.delay
+ import top.yukonga.miuix.kmp.basic.Button
+ import top.yukonga.miuix.kmp.basic.Card
+-import top.yukonga.miuix.kmp.basic.Checkbox
+-import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
+-import top.yukonga.miuix.kmp.basic.FloatingActionButton
++import top.yukonga.miuix.kmp.basic.Switch
+ import top.yukonga.miuix.kmp.basic.TabRow
+ import top.yukonga.miuix.kmp.basic.Text
+ import top.yukonga.miuix.kmp.basic.TextButton
+ import top.yukonga.miuix.kmp.basic.TextField
+ import top.yukonga.miuix.kmp.theme.MiuixTheme
+ 
+-/** 搜索页（底部 dock 的"搜索"标签）：首页居中搜索框，搜后跳转结果页。 */
++/** 搜索页（底部 dock 的"搜索"标签）：首页居中搜索框，搜后进结果页。 */
+ @Composable
+ fun SearchTab(
+     vm: SearchViewModel,
+     initialKeyword: String? = null,
+     autoOpenDialog: Boolean = false,
+ ) {
+-    val context = LocalContext.current
+     var selectedResult by remember { mutableStateOf<SearchResultUi?>(null) }
+ 
+-    fun openUrl(url: String) {
+-        context.startActivity(Intent(Intent.ACTION_VIEW, url.toUri()))
+-    }
+-
+     // Deep link 带关键词进来：自动执行一次搜索
+     LaunchedEffect(initialKeyword) {
+         if (!initialKeyword.isNullOrBlank()) {
+@@ -98,7 +89,7 @@ fun SearchTab(
+         }
+     }
+ 
+-    // 调试：搜出结果后自动弹出第一条的详情弹窗（验证用）
++    // 调试：搜出结果后自动弹出第一条的详情（验证用）
+     LaunchedEffect(vm.results, autoOpenDialog) {
+         if (autoOpenDialog && vm.results.isNotEmpty() && selectedResult == null) {
+             selectedResult = vm.currentTabResults.firstOrNull()
+@@ -106,7 +97,7 @@ fun SearchTab(
+     }
+ 
+     // 结果页按返回：回到首页（清空结果），而不是直接退出应用
+-    //（弹窗打开时返回键由 Dialog 自己消费；搜索中按返回会取消搜索）
++    //（弹层打开时返回键由 bottom sheet 自己消费；搜索中按返回会取消搜索）
+     BackHandler(enabled = vm.searched) {
+         vm.clearResults()
+     }
+@@ -120,10 +111,8 @@ fun SearchTab(
+         label = "home_results",
+     ) { searched ->
+         if (!searched) {
+-            // ===== 首页：搜索框居中 =====
+             HomeView(vm = vm, initialKeyword = initialKeyword)
+         } else {
+-            // ===== 结果页 =====
+             ResultsView(
+                 vm = vm,
+                 initialKeyword = initialKeyword,
+@@ -135,17 +124,22 @@ fun SearchTab(
+         }
+     }
+ 
+-    // 点卡片后的弹窗：识别网盘类型 + 检测链接有效性
++    // 点结果行后的底部详情弹层
+     selectedResult?.let { r ->
+-        ResultDialog(result = r, onDismiss = { selectedResult = null }, vm = vm)
++        ResultSheet(result = r, onDismiss = { selectedResult = null }, vm = vm)
+     }
+ }
+ 
+-/** 首页：搜索框居中。 */
++/** 首页：搜索框居中，下方横滑历史 chips。 */
+ @Composable
+ private fun HomeView(vm: SearchViewModel, initialKeyword: String?) {
++    fun go(kw: String) {
++        vm.keyword = kw
++        vm.search()
++    }
++
+     Column(
+-        modifier = Modifier.fillMaxSize().padding(horizontal = 24.dp),
++        modifier = Modifier.fillMaxSize(),
+         horizontalAlignment = Alignment.CenterHorizontally,
+         verticalArrangement = Arrangement.Center,
+     ) {
+@@ -154,48 +148,117 @@ private fun HomeView(vm: SearchViewModel, initialKeyword: String?) {
+             fontWeight = FontWeight.Bold,
+             fontSize = 34.sp,
+         )
+-        Text(
+-            text = "规则引擎 · 网盘磁力搜索",
+-            fontSize = 14.sp,
+-            color = MiuixTheme.colorScheme.secondary,
+-            modifier = Modifier.padding(top = 8.dp, bottom = 32.dp),
++        SearchInput(
++            vm = vm,
++            initialKeyword = initialKeyword,
++            modifier = Modifier.padding(start = 24.dp, end = 24.dp, top = 32.dp),
+         )
+-        SearchInput(vm = vm, initialKeyword = initialKeyword)
++        // 历史搜索：一眼可见，点一下直接搜
++        if (vm.history.isNotEmpty()) {
++            LazyRow(
++                modifier = Modifier.fillMaxWidth().padding(top = 20.dp),
++                horizontalArrangement = Arrangement.spacedBy(8.dp),
++                contentPadding = PaddingValues(horizontal = 24.dp),
++            ) {
++                items(vm.history.take(8), key = { it }) { h ->
++                    Box(
++                        modifier = Modifier.clip(CircleShape)
++                            .background(MiuixTheme.colorScheme.surfaceContainerHighest)
++                            .clickable { go(h) }
++                            .padding(horizontal = 16.dp, vertical = 10.dp),
++                    ) {
++                        Text(
++                            text = h,
++                            fontSize = 14.sp,
++                            maxLines = 1,
++                            overflow = TextOverflow.Ellipsis,
++                        )
++                    }
++                }
++            }
++        }
+     }
+ }
+ 
+-/** 结果页。 */
++/** 结果页：单列结果行 + 顶部筛选入口（无 FAB）。 */
+ @Composable
+ private fun ResultsView(
+     vm: SearchViewModel,
+     initialKeyword: String?,
+     onResultClick: (SearchResultUi) -> Unit,
+ ) {
+-    var showFilterDialog by remember { mutableStateOf(false) }
++    var showFilterSheet by remember { mutableStateOf(false) }
++    val keyword = vm.keyword
+ 
+-    Column(
+-        modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
+-        verticalArrangement = Arrangement.spacedBy(12.dp),
+-    ) {
+-        SearchInput(
+-            vm = vm,
+-            // 结果页的搜索框带入当前关键词
+-            initialKeyword = vm.keyword.ifBlank { initialKeyword },
+-            modifier = Modifier.padding(top = 8.dp),
+-        )
++    Column(modifier = Modifier.fillMaxSize()) {
++        // 顶栏：搜索框 + 筛选文字按钮
++        Row(
++            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(top = 8.dp),
++            verticalAlignment = Alignment.CenterVertically,
++            horizontalArrangement = Arrangement.spacedBy(4.dp),
++        ) {
++            Box(modifier = Modifier.weight(1f)) {
++                SearchInput(
++                    vm = vm,
++                    initialKeyword = keyword.ifBlank { initialKeyword },
++                )
++            }
++            val filterActive = vm.sortMode != SortMode.DEFAULT ||
++                vm.hiddenPanBrands.isNotEmpty() || vm.onlyReachable
++            Box(
++                modifier = Modifier.clip(CircleShape)
++                    .clickable { showFilterSheet = true }
++                    .padding(horizontal = 12.dp, vertical = 14.dp),
++            ) {
++                Text(
++                    text = "筛选",
++                    fontSize = 14.sp,
++                    color = if (filterActive) MiuixTheme.colorScheme.primary
++                    else MiuixTheme.colorScheme.secondary,
++                )
++            }
++        }
++
++        // 多选模式指示行
++        if (vm.selectionMode) {
++            Row(
++                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(top = 4.dp),
++                verticalAlignment = Alignment.CenterVertically,
++            ) {
++                Text(
++                    text = "已选 ${vm.selectedUrls.size}",
++                    fontSize = 14.sp,
++                    fontWeight = FontWeight.Medium,
++                    modifier = Modifier.weight(1f),
++                )
++                Box(
++                    modifier = Modifier.clip(CircleShape)
++                        .clickable { vm.toggleSelectionMode() }
++                        .padding(horizontal = 12.dp, vertical = 8.dp),
++                ) {
++                    Text(
++                        text = "取消",
++                        fontSize = 14.sp,
++                        color = MiuixTheme.colorScheme.secondary,
++                    )
++                }
++            }
++        }
+ 
+         when {
+-            vm.loading -> {
++            vm.loading -> SkeletonRows()
++            vm.error != null -> {
+                 Box(
+                     modifier = Modifier.fillMaxSize().weight(1f),
+                     contentAlignment = Alignment.Center,
+                 ) {
+-                    CircularProgressIndicator()
++                    Text(
++                        "出错：${vm.error}",
++                        color = MiuixTheme.colorScheme.secondary,
++                        fontSize = 14.sp,
++                    )
+                 }
+             }
+-            vm.error != null -> {
+-                Text("出错：${vm.error}")
+-            }
+             vm.results.isEmpty() -> {
+                 Box(
+                     modifier = Modifier.fillMaxSize().weight(1f).padding(bottom = 80.dp),
+@@ -204,248 +267,206 @@ private fun ResultsView(
+                     Text(
+                         "没有搜到相关资源，换个关键词试试",
+                         color = MiuixTheme.colorScheme.secondary,
++                        fontSize = 14.sp,
+                     )
+                 }
+             }
+             else -> {
+-                TabRow(
+-                    tabs = vm.tabTitles,
+-                    selectedTabIndex = vm.selectedTab,
+-                    onTabSelected = vm::selectTab,
+-                )
+-                // 双列卡片网格：卡片宽高由屏幕决定，不随标题长短变化
+-                // 左下角圆形工具按钮：展开后弹出筛选/多选
+-                Box(modifier = Modifier.fillMaxSize().weight(1f)) {
+-                    LazyVerticalGrid(
+-                        columns = GridCells.Fixed(2),
+-                        modifier = Modifier.fillMaxSize(),
+-                        contentPadding = PaddingValues(vertical = 4.dp),
+-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+-                        verticalArrangement = Arrangement.spacedBy(12.dp),
+-                    ) {
+-                        items(vm.currentTabResults, key = { it.url }) { r ->
+-                            ResultCard(
+-                                r = r,
+-                                selectionMode = vm.selectionMode,
+-                                selected = r.url in vm.selectedUrls,
+-                                onClick = {
+-                                    if (vm.selectionMode) vm.toggleSelect(r.url)
+-                                    else onResultClick(r)
+-                                },
+-                            )
+-                        }
+-                    }
+-                    ToolsFab(
+-                        vm = vm,
+-                        onFilterClick = { showFilterDialog = true },
+-                        modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp),
++                // tab 自带计数：网盘 38 · 磁力 22
++                val tabTitles = vm.groupedResults.map { (title, list) -> "$title ${list.size}" }
++                if (tabTitles.isNotEmpty()) {
++                    TabRow(
++                        tabs = tabTitles,
++                        selectedTabIndex = vm.selectedTab,
++                        onTabSelected = vm::selectTab,
+                     )
+                 }
++                LazyColumn(
++                    modifier = Modifier.fillMaxSize().weight(1f),
++                    contentPadding = PaddingValues(bottom = 16.dp),
++                ) {
++                    items(vm.currentTabResults, key = { it.url }) { r ->
++                        ResultRow(
++                            r = r,
++                            keyword = keyword,
++                            selectionMode = vm.selectionMode,
++                            selected = r.url in vm.selectedUrls,
++                            linkOk = vm.linkStatus[r.url],
++                            onClick = {
++                                if (vm.selectionMode) vm.toggleSelect(r.url)
++                                else onResultClick(r)
++                            },
++                            onLongClick = {
++                                // 长按直接进多选并选中这一条
++                                if (!vm.selectionMode) {
++                                    vm.toggleSelectionMode()
++                                    vm.toggleSelect(r.url)
++                                }
++                            },
++                        )
++                    }
++                }
+             }
+         }
+ 
+-        // 多选操作条
++        // 多选模式底部操作条：复制所选 / 分享
+         if (vm.selectionMode) {
+             SelectionBar(vm = vm)
+         }
+     }
+ 
+-    // 筛选框：排序方式 + 网盘类型过滤 + 链接状态
+-    if (showFilterDialog) {
+-        Dialog(onDismissRequest = { showFilterDialog = false }) {
+-            Card(
+-                modifier = Modifier.fillMaxWidth().padding(24.dp),
+-                insideMargin = PaddingValues(8.dp),
++    // 筛选 bottom sheet：排序 + 网盘品牌 + 仅看有效链接
++    if (showFilterSheet) {
++        FilterSheet(vm = vm, onDismiss = { showFilterSheet = false })
++    }
++}
++
++/** 加载中的骨架行：灰色呼吸条，代替中间的大转圈。 */
++@Composable
++private fun ColumnScope.SkeletonRows() {
++    val alpha by rememberInfiniteTransition().animateFloat(
++        initialValue = 0.35f,
++        targetValue = 0.9f,
++        animationSpec = infiniteRepeatable(tween(900), RepeatMode.Reverse),
++    )
++    Column(
++        modifier = Modifier.fillMaxSize().weight(1f).padding(horizontal = 16.dp, vertical = 8.dp),
++        verticalArrangement = Arrangement.spacedBy(4.dp),
++    ) {
++        repeat(7) {
++            Box(
++                modifier = Modifier.fillMaxWidth().height(62.dp)
++                    .clip(RoundedCornerShape(8.dp))
++                    .background(
++                        MiuixTheme.colorScheme.surfaceContainerHighest.copy(alpha = alpha),
++                    ),
++            )
++        }
++    }
++}
++
++@OptIn(ExperimentalMaterial3Api::class)
++@Composable
++private fun FilterSheet(vm: SearchViewModel, onDismiss: () -> Unit) {
++    ModalBottomSheet(
++        onDismissRequest = onDismiss,
++        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
++        containerColor = MiuixTheme.colorScheme.surface,
++    ) {
++        Column(
++            modifier = Modifier.fillMaxWidth()
++                .padding(horizontal = 20.dp)
++                .padding(bottom = 28.dp),
++            verticalArrangement = Arrangement.spacedBy(4.dp),
++        ) {
++            Text(
++                text = "筛选",
++                fontSize = 17.sp,
++                fontWeight = FontWeight.Medium,
++                modifier = Modifier.padding(bottom = 8.dp),
++            )
++            FilterSectionLabel("排序方式")
++            Row(
++                horizontalArrangement = Arrangement.spacedBy(8.dp),
++                modifier = Modifier.padding(bottom = 12.dp),
+             ) {
+-                Text(
+-                    text = "筛选",
+-                    fontWeight = FontWeight.Medium,
+-                    fontSize = 16.sp,
+-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+-                )
+-                // 内容过多时可上下滚动，避免被截断
+-                Column(
+-                    modifier = Modifier
+-                        .heightIn(max = 440.dp)
+-                        .verticalScroll(rememberScrollState()),
+-                ) {
+-                Text(
+-                    text = "排序方式",
+-                    fontSize = 13.sp,
+-                    color = MiuixTheme.colorScheme.secondary,
+-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+-                )
+-                SortMode.entries.forEach { mode ->
+-                    Row(
+-                        modifier = Modifier
+-                            .fillMaxWidth()
+-                            .clickable {
+-                                vm.sortMode = mode
+-                                showFilterDialog = false
+-                            }
+-                            .padding(horizontal = 16.dp, vertical = 12.dp),
+-                        verticalAlignment = Alignment.CenterVertically,
+-                    ) {
+-                        Text(
+-                            text = mode.label,
+-                            fontSize = 15.sp,
+-                            color = if (vm.sortMode == mode) {
+-                                MiuixTheme.colorScheme.primary
+-                            } else {
+-                                MiuixTheme.colorScheme.onSurface
+-                            },
+-                        )
+-                    }
+-                }
+-                if (vm.tabPanBrands.isNotEmpty()) {
+-                    Text(
+-                        text = "网盘类型（取消勾选即过滤掉）",
+-                        fontSize = 13.sp,
+-                        color = MiuixTheme.colorScheme.secondary,
+-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
++                listOf(SortMode.DEFAULT, SortMode.SIZE_DESC, SortMode.TIME_DESC).forEach { mode ->
++                    FilterChip(
++                        label = mode.label,
++                        selected = vm.sortMode == mode,
++                        onClick = { vm.sortMode = mode },
+                     )
+-                    vm.tabPanBrands.forEach { brand ->
+-                        val hidden = brand in vm.hiddenPanBrands
++                }
++            }
++            if (vm.tabPanBrands.isNotEmpty()) {
++                FilterSectionLabel("网盘")
++                LazyRow(
++                    horizontalArrangement = Arrangement.spacedBy(8.dp),
++                    modifier = Modifier.padding(bottom = 12.dp),
++                ) {
++                    items(vm.tabPanBrands, key = { it }) { brand ->
++                        val shown = brand !in vm.hiddenPanBrands
+                         val label = PAN_BRAND_DEFS.firstOrNull { it.first == brand }?.second ?: brand
+-                        Row(
+-                            modifier = Modifier
+-                                .fillMaxWidth()
+-                                .clickable { vm.togglePanBrandHidden(brand) }
+-                                .padding(horizontal = 16.dp, vertical = 8.dp),
+-                            verticalAlignment = Alignment.CenterVertically,
+-                        ) {
+-                            Checkbox(
+-                                state = ToggleableState(!hidden),
+-                                onClick = { vm.togglePanBrandHidden(brand) },
+-                            )
+-                            Text(
+-                                text = label,
+-                                fontSize = 15.sp,
+-                                maxLines = 1,
+-                                overflow = TextOverflow.Ellipsis,
+-                                modifier = Modifier.padding(start = 12.dp),
+-                            )
+-                        }
++                        FilterChip(
++                            label = label,
++                            selected = shown,
++                            dotColor = if (shown) brandColor(brand) else null,
++                            onClick = { vm.togglePanBrandHidden(brand) },
++                        )
+                     }
+                 }
+-                Text(
+-                    text = "链接状态",
+-                    fontSize = 13.sp,
+-                    color = MiuixTheme.colorScheme.secondary,
+-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+-                )
+-                Row(
+-                    modifier = Modifier
+-                        .fillMaxWidth()
+-                        .clickable { vm.setOnlyReachableFilter(!vm.onlyReachable) }
+-                        .padding(horizontal = 16.dp, vertical = 8.dp),
+-                    verticalAlignment = Alignment.CenterVertically,
+-                ) {
+-                    Checkbox(
+-                        state = ToggleableState(vm.onlyReachable),
+-                        onClick = { vm.setOnlyReachableFilter(!vm.onlyReachable) },
+-                    )
+-                    Column(modifier = Modifier.padding(start = 12.dp)) {
++            }
++            Row(
++                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
++                verticalAlignment = Alignment.CenterVertically,
++            ) {
++                Column(modifier = Modifier.weight(1f)) {
++                    Text(text = "仅看有效链接", fontSize = 15.sp)
++                    if (vm.checkingLinks) {
++                        val prog = vm.checkProgress
+                         Text(
+-                            text = "只显示可访问的链接",
+-                            fontSize = 15.sp,
++                            text = if (prog != null) "检测中 ${prog.first}/${prog.second}…"
++                            else "检测中…",
++                            fontSize = 12.sp,
++                            color = MiuixTheme.colorScheme.secondary,
++                            modifier = Modifier.padding(top = 2.dp),
+                         )
+-                        val prog = vm.checkProgress
+-                        if (vm.checkingLinks && prog != null) {
+-                            Text(
+-                                text = "检测中 ${prog.first}/${prog.second}…",
+-                                fontSize = 12.sp,
+-                                color = MiuixTheme.colorScheme.secondary,
+-                            )
+-                        } else if (vm.checkingLinks) {
+-                            Text(
+-                                text = "检测中…",
+-                                fontSize = 12.sp,
+-                                color = MiuixTheme.colorScheme.secondary,
+-                            )
+-                        }
+                     }
+                 }
+-                }
+-                Button(
+-                    onClick = { showFilterDialog = false },
+-                    modifier = Modifier.fillMaxWidth().padding(16.dp),
+-                ) {
+-                    Text("完成")
+-                }
++                Switch(
++                    checked = vm.onlyReachable,
++                    onCheckedChange = { vm.setOnlyReachableFilter(it) },
++                )
++            }
++            Button(
++                onClick = onDismiss,
++                modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
++            ) {
++                Text("完成")
+             }
+         }
+     }
+ }
+ 
+-/** 右下角圆形工具按钮：点开展开筛选/多选，再点收起。 */
+ @Composable
+-private fun ToolsFab(
+-    vm: SearchViewModel,
+-    onFilterClick: () -> Unit,
+-    modifier: Modifier = Modifier,
+-) {
+-    var expanded by remember { mutableStateOf(false) }
+-    Column(
+-        modifier = modifier,
+-        horizontalAlignment = Alignment.End,
+-        verticalArrangement = Arrangement.spacedBy(12.dp),
+-    ) {
+-        AnimatedVisibility(visible = expanded) {
+-            Column(
+-                horizontalAlignment = Alignment.End,
+-                verticalArrangement = Arrangement.spacedBy(12.dp),
+-            ) {
+-                FabAction(
+-                    icon = Icons.Filled.List,
+-                    label = "筛选",
+-                    onClick = {
+-                        expanded = false
+-                        onFilterClick()
+-                    },
+-                )
+-                FabAction(
+-                    icon = if (vm.selectionMode) Icons.Filled.Close else Icons.Filled.Check,
+-                    label = if (vm.selectionMode) "取消多选" else "多选",
+-                    onClick = {
+-                        expanded = false
+-                        vm.toggleSelectionMode()
+-                    },
+-                )
+-            }
+-        }
+-        FloatingActionButton(
+-            onClick = { expanded = !expanded },
+-            modifier = Modifier.size(56.dp),
+-        ) {
+-            Icon(
+-                imageVector = if (expanded) Icons.Filled.Close else Icons.Filled.MoreVert,
+-                contentDescription = "工具",
+-                tint = MiuixTheme.colorScheme.onPrimary,
+-                modifier = Modifier.size(24.dp),
+-            )
+-        }
+-    }
++private fun FilterSectionLabel(text: String) {
++    Text(
++        text = text,
++        fontSize = 12.sp,
++        color = MiuixTheme.colorScheme.secondary,
++        modifier = Modifier.padding(bottom = 8.dp),
++    )
+ }
+ 
+-/** FAB 展开后的带文字小按钮（右下角：文字在左，图标在右）。 */
++/** 筛选胶囊：选中态染主色底 + 主色字。 */
+ @Composable
+-private fun FabAction(icon: ImageVector, label: String, onClick: () -> Unit) {
++private fun FilterChip(
++    label: String,
++    selected: Boolean,
++    onClick: () -> Unit,
++    dotColor: Color? = null,
++) {
+     Row(
+         verticalAlignment = Alignment.CenterVertically,
+-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+-        modifier = Modifier
+-            .clip(CircleShape)
+-            .background(MiuixTheme.colorScheme.surfaceContainerHighest)
++        horizontalArrangement = Arrangement.spacedBy(6.dp),
++        modifier = Modifier.clip(CircleShape)
++            .background(
++                if (selected) MiuixTheme.colorScheme.primary.copy(alpha = 0.12f)
++                else MiuixTheme.colorScheme.surfaceContainerHighest,
++            )
+             .clickable(onClick = onClick)
+-            .padding(horizontal = 14.dp, vertical = 10.dp),
++            .padding(horizontal = 16.dp, vertical = 10.dp),
+     ) {
+-        Text(text = label, fontSize = 14.sp)
+-        Icon(
+-            imageVector = icon,
+-            contentDescription = null,
+-            tint = MiuixTheme.colorScheme.onSurface,
+-            modifier = Modifier.size(20.dp),
++        if (dotColor != null) {
++            Box(
++                modifier = Modifier.size(8.dp).clip(CircleShape).background(dotColor),
++            )
++        }
++        Text(
++            text = label,
++            fontSize = 14.sp,
++            color = if (selected) MiuixTheme.colorScheme.primary
++            else MiuixTheme.colorScheme.onSurface,
+         )
+     }
+ }
+@@ -460,20 +481,20 @@ private fun SelectionBar(vm: SearchViewModel) {
+     fun copySelected() {
+         val text = vm.selectedResults().joinToString("\n") { it.url }
+         clipboard.setText(AnnotatedString(text))
+-        android.widget.Toast.makeText(context, "已复制 $count 条链接", android.widget.Toast.LENGTH_SHORT).show()
++        Toast.makeText(context, "已复制 $count 条链接", Toast.LENGTH_SHORT).show()
+     }
+ 
+     fun shareSelected() {
+         val text = vm.selectedResults().joinToString("\n\n") { "${it.title}\n${it.url}" }
+-        val intent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
++        val intent = Intent(Intent.ACTION_SEND).apply {
+             type = "text/plain"
+-            putExtra(android.content.Intent.EXTRA_TEXT, text)
++            putExtra(Intent.EXTRA_TEXT, text)
+         }
+-        context.startActivity(android.content.Intent.createChooser(intent, "分享链接"))
++        context.startActivity(Intent.createChooser(intent, "分享链接"))
+     }
+ 
+     Row(
+-        modifier = Modifier.fillMaxWidth(),
++        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
+         horizontalArrangement = Arrangement.spacedBy(8.dp),
+     ) {
+         Button(
+@@ -488,11 +509,6 @@ private fun SelectionBar(vm: SearchViewModel) {
+             enabled = count > 0,
+             modifier = Modifier.weight(1f),
+         ) {
+-            Icon(
+-                imageVector = Icons.Filled.Share,
+-                contentDescription = null,
+-                modifier = Modifier.size(18.dp).padding(end = 4.dp),
+-            )
+             Text("分享")
+         }
+     }
+@@ -648,73 +664,3 @@ private fun SearchInput(
+         }
+     }
+ }
+-
+-@Composable
+-private fun ResultCard(
+-    r: SearchResultUi,
+-    selectionMode: Boolean = false,
+-    selected: Boolean = false,
+-    onClick: () -> Unit,
+-) {
+-    // Miuix Card 默认 insideMargin 为 0，文字会贴边被 16dp 圆角裁掉，必须显式给内边距
+-    Card(
+-        onClick = onClick,
+-        insideMargin = PaddingValues(horizontal = 12.dp, vertical = 10.dp),
+-    ) {
+-        // Box 撑满卡片宽度，勾选圆圈才能固定在右上角，不跟标题长短跑
+-        Box(modifier = Modifier.fillMaxWidth()) {
+-            Column(
+-                // 多选时标题右侧给勾选圆圈留位置，不被压住
+-                modifier = Modifier.padding(end = if (selectionMode) 28.dp else 0.dp),
+-            ) {
+-                Text(
+-                    text = r.title,
+-                    minLines = 2, // 固定两行：卡片高度统一
+-                    maxLines = 2,
+-                    overflow = TextOverflow.Ellipsis,
+-                    fontWeight = FontWeight.Medium,
+-                    fontSize = 13.sp,
+-                    lineHeight = 18.sp,
+-                )
+-                // 左下角显示文件大小（无大小时显示时间，都没有则留空行保持高度统一）
+-                val meta = r.size.ifEmpty { r.time }
+-                Row(
+-                    verticalAlignment = Alignment.CenterVertically,
+-                    modifier = Modifier.padding(top = 8.dp),
+-                ) {
+-                    Text(
+-                        text = meta,
+-                        fontSize = 12.sp,
+-                        color = MiuixTheme.colorScheme.secondary,
+-                        minLines = 1,
+-                        maxLines = 1,
+-                        overflow = TextOverflow.Ellipsis,
+-                    )
+-                }
+-            }
+-            // 多选模式：右上角勾选状态
+-            if (selectionMode) {
+-                Box(
+-                    modifier = Modifier
+-                        .align(Alignment.TopEnd)
+-                        .size(22.dp)
+-                        .clip(CircleShape)
+-                        .background(
+-                            if (selected) MiuixTheme.colorScheme.primary
+-                            else MiuixTheme.colorScheme.surfaceContainerHighest,
+-                        ),
+-                    contentAlignment = Alignment.Center,
+-                ) {
+-                    if (selected) {
+-                        Icon(
+-                            imageVector = Icons.Filled.Check,
+-                            contentDescription = null,
+-                            tint = MiuixTheme.colorScheme.onPrimary,
+-                            modifier = Modifier.size(14.dp),
+-                        )
+-                    }
+-                }
+-            }
+-        }
+-    }
+-}
+diff --git a/android/app/src/main/java/dev/rulesearch/app/ui/SettingsScreen.kt b/android/app/src/main/java/dev/rulesearch/app/ui/SettingsScreen.kt
+index 0f6d545..3d14a77 100644
+--- a/android/app/src/main/java/dev/rulesearch/app/ui/SettingsScreen.kt
++++ b/android/app/src/main/java/dev/rulesearch/app/ui/SettingsScreen.kt
+@@ -1,19 +1,11 @@
+ package dev.rulesearch.app.ui
+ 
+ import androidx.activity.compose.BackHandler
+-import androidx.compose.animation.AnimatedContent
+-import androidx.compose.animation.core.tween
+-import androidx.compose.animation.fadeIn
+-import androidx.compose.animation.fadeOut
+-import androidx.compose.animation.togetherWith
+-import androidx.compose.foundation.clickable
++import androidx.compose.foundation.background
+ import androidx.compose.foundation.combinedClickable
+-import androidx.compose.foundation.shape.CircleShape
+-import androidx.compose.foundation.shape.RoundedCornerShape
+ import androidx.compose.foundation.layout.Arrangement
+ import androidx.compose.foundation.layout.Box
+ import androidx.compose.foundation.layout.Column
+-import androidx.compose.foundation.background
+ import androidx.compose.foundation.layout.PaddingValues
+ import androidx.compose.foundation.layout.Row
+ import androidx.compose.foundation.layout.fillMaxSize
+@@ -21,26 +13,27 @@ import androidx.compose.foundation.layout.fillMaxWidth
+ import androidx.compose.foundation.layout.height
+ import androidx.compose.foundation.layout.padding
+ import androidx.compose.foundation.layout.size
+-import androidx.compose.material3.Icon
+ import androidx.compose.foundation.lazy.LazyColumn
+ import androidx.compose.foundation.lazy.items
++import androidx.compose.foundation.shape.CircleShape
+ import androidx.compose.foundation.text.KeyboardOptions
++import androidx.compose.material.icons.Icons
++import androidx.compose.material.icons.filled.Check
++import androidx.compose.material3.Icon
+ import androidx.compose.runtime.Composable
+ import androidx.compose.runtime.getValue
+ import androidx.compose.runtime.mutableStateOf
+-import androidx.compose.material.icons.Icons
+-import androidx.compose.material.icons.filled.Check
+ import androidx.compose.runtime.remember
+ import androidx.compose.runtime.setValue
+ import androidx.compose.ui.Alignment
+ import androidx.compose.ui.Modifier
+ import androidx.compose.ui.draw.clip
+-import androidx.compose.ui.window.Dialog
+ import androidx.compose.ui.text.font.FontWeight
+ import androidx.compose.ui.text.input.ImeAction
+ import androidx.compose.ui.text.style.TextOverflow
+ import androidx.compose.ui.unit.dp
+ import androidx.compose.ui.unit.sp
++import androidx.compose.ui.window.Dialog
+ import dev.rulesearch.app.SearchViewModel
+ import top.yukonga.miuix.kmp.basic.Button
+ import top.yukonga.miuix.kmp.basic.Card
+@@ -49,123 +42,9 @@ import top.yukonga.miuix.kmp.basic.TextButton
+ import top.yukonga.miuix.kmp.basic.TextField
+ import top.yukonga.miuix.kmp.theme.MiuixTheme
+ 
+-/** 设置页（底部 dock 的"设置"标签）：二级菜单，子页返回键回到菜单。 */
+-@Composable
+-fun SettingsTab(vm: SearchViewModel) {
+-    var page by remember { mutableStateOf<String?>(null) } // null=菜单, "rules"=搜索源, "blocklist"=过滤词
+-
+-    BackHandler(enabled = page != null) { page = null }
+-
+-    AnimatedContent(
+-        targetState = page,
+-        transitionSpec = { fadeIn(tween(220)).togetherWith(fadeOut(tween(180))) },
+-        label = "settings_nav",
+-    ) { p ->
+-        when (p) {
+-            "rules" -> SettingsSubPage(onBack = { page = null }) { ManageTab(vm = vm) }
+-            "blocklist" -> SettingsSubPage(onBack = { page = null }) { BlocklistPage(vm = vm) }
+-            else -> SettingsMenu(
+-                vm = vm,
+-                onRules = { page = "rules" },
+-                onBlocklist = { page = "blocklist" },
+-            )
+-        }
+-    }
+-}
+-
+-/** 设置一级菜单。 */
+-@Composable
+-private fun SettingsMenu(
+-    vm: SearchViewModel,
+-    onRules: () -> Unit,
+-    onBlocklist: () -> Unit,
+-) {
+-    Column(
+-        modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
+-        verticalArrangement = Arrangement.spacedBy(12.dp),
+-    ) {
+-        Text(
+-            text = "设置",
+-            fontWeight = FontWeight.Bold,
+-            fontSize = 32.sp,
+-            modifier = Modifier.padding(top = 16.dp, bottom = 4.dp),
+-        )
+-        Card(
+-            onClick = onRules,
+-            insideMargin = PaddingValues(horizontal = 14.dp, vertical = 12.dp),
+-        ) {
+-            SettingsMenuRow(
+-                title = "搜索源设置",
+-                subtitle = "${vm.rules.size} 条规则，可开关、导入、检测、更新",
+-            )
+-        }
+-        Card(
+-            onClick = onBlocklist,
+-            insideMargin = PaddingValues(horizontal = 14.dp, vertical = 12.dp),
+-        ) {
+-            SettingsMenuRow(
+-                title = "内容过滤",
+-                subtitle = "${vm.blockedWords.size} 个过滤词 · 累计已过滤 ${vm.totalFiltered} 条",
+-            )
+-        }
+-    }
+-}
+-
+-@Composable
+-private fun SettingsMenuRow(title: String, subtitle: String) {
+-    Row(
+-        modifier = Modifier.fillMaxWidth(),
+-        horizontalArrangement = Arrangement.SpaceBetween,
+-        verticalAlignment = Alignment.CenterVertically,
+-    ) {
+-        Column(modifier = Modifier.weight(1f)) {
+-            Text(
+-                text = title,
+-                fontWeight = FontWeight.Medium,
+-                fontSize = 15.sp,
+-            )
+-            Text(
+-                text = subtitle,
+-                fontSize = 12.sp,
+-                color = MiuixTheme.colorScheme.secondary,
+-                modifier = Modifier.padding(top = 2.dp),
+-            )
+-        }
+-        Text(
+-            text = "〉",
+-            fontSize = 14.sp,
+-            color = MiuixTheme.colorScheme.secondary,
+-        )
+-    }
+-}
+-
+-/** 设置二级页面：顶部返回行 + 内容。 */
+-@Composable
+-private fun SettingsSubPage(onBack: () -> Unit, content: @Composable () -> Unit) {
+-    Column(modifier = Modifier.fillMaxSize()) {
+-        Row(
+-            modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+-            verticalAlignment = Alignment.CenterVertically,
+-        ) {
+-            Text(
+-                text = "〈 返回",
+-                color = MiuixTheme.colorScheme.primary,
+-                fontSize = 15.sp,
+-                modifier = Modifier
+-                    .clip(RoundedCornerShape(8.dp))
+-                    .clickable(onClick = onBack)
+-                    .padding(horizontal = 12.dp, vertical = 8.dp),
+-            )
+-        }
+-        Box(modifier = Modifier.fillMaxSize().weight(1f)) {
+-            content()
+-        }
+-    }
+-}
+-
+-/** 内容过滤整页版：新增 + 列表 + 删除。 */
++/** 内容过滤页（"我的"里的二级页面）：新增 + 列表 + 删除。 */
+ @Composable
+-private fun BlocklistPage(vm: SearchViewModel) {
++fun BlocklistPage(vm: SearchViewModel) {
+     var input by remember { mutableStateOf("") }
+     var showClearConfirm by remember { mutableStateOf(false) }
+     // 多选删除模式：长按列表项进入
