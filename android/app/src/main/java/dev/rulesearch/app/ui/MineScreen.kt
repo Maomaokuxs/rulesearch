@@ -81,7 +81,7 @@ fun MineTab(vm: SearchViewModel) {
             "footprints" -> MineSubPage(onBack = { page = null }) { FootprintsTab(vm = vm) }
             "rules" -> MineSubPage(onBack = { page = null }) { ManageTab(vm = vm) }
             "blocklist" -> MineSubPage(onBack = { page = null }) { BlocklistPage(vm = vm) }
-            "about" -> MineSubPage(onBack = { page = null }) { AboutPage(onLicense = { page = "license" }) }
+            "about" -> MineSubPage(onBack = { page = null }) { AboutPage(vm = vm, onLicense = { page = "license" }) }
             "license" -> MineSubPage(onBack = { page = "about" }) {
                 LicensePage(onEntryClick = { selectedLicense = it })
             }
@@ -257,7 +257,7 @@ private fun MineSubPage(onBack: () -> Unit, content: @Composable () -> Unit) {
  * 关于页（按 mock）。
  */
 @Composable
-private fun AboutPage(onLicense: () -> Unit) {
+private fun AboutPage(vm: SearchViewModel, onLicense: () -> Unit) {
     val context = LocalContext.current
     Column(modifier = Modifier.fillMaxSize()) {
         Text(
@@ -294,14 +294,16 @@ private fun AboutPage(onLicense: () -> Unit) {
         ) {
             MineMenuRow(
                 title = "检查更新",
-                onClick = {
-                    context.startActivity(
-                        Intent(
-                            Intent.ACTION_VIEW,
-                            "https://github.com/Maomaokuxs/rulesearch/releases".toUri(),
-                        ),
-                    )
+                trailing = {
+                    if (vm.updateState is dev.rulesearch.app.UpdateState.Checking) {
+                        Text(
+                            text = "检查中…",
+                            fontSize = 14.sp,
+                            color = MiuixTheme.colorScheme.secondary,
+                        )
+                    }
                 },
+                onClick = { vm.checkForUpdate() },
             )
             Box(
                 modifier = Modifier.fillMaxWidth().padding(start = 16.dp)
@@ -327,6 +329,78 @@ private fun AboutPage(onLicense: () -> Unit) {
                 },
             )
         }
+    }
+    // 检查更新：有更新弹窗 / 已是最新 / 失败 Toast
+    val updateState = vm.updateState
+    when (updateState) {
+        is dev.rulesearch.app.UpdateState.Available -> {
+            Dialog(onDismissRequest = { vm.resetUpdateState() }) {
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(cardBackground())
+                        .padding(20.dp),
+                ) {
+                    Text(
+                        text = "发现新版本 ${updateState.latest}",
+                        fontSize = 17.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                    )
+                    if (updateState.notes.isNotBlank()) {
+                        Text(
+                            text = updateState.notes.take(500),
+                            fontSize = 14.sp,
+                            color = MiuixTheme.colorScheme.secondary,
+                            modifier = Modifier.padding(top = 12.dp),
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(20.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        Box(
+                            modifier = Modifier.weight(1f)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(MiuixTheme.colorScheme.primary)
+                                .clickable {
+                                    vm.resetUpdateState()
+                                    context.startActivity(
+                                        Intent(Intent.ACTION_VIEW, updateState.url.toUri()),
+                                    )
+                                }
+                                .padding(vertical = 12.dp),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text(text = "去下载", color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                        }
+                        Box(
+                            modifier = Modifier.weight(1f)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(MiuixTheme.colorScheme.outline)
+                                .clickable { vm.resetUpdateState() }
+                                .padding(vertical = 12.dp),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text(text = "稍后", fontSize = 15.sp)
+                        }
+                    }
+                }
+            }
+        }
+        is dev.rulesearch.app.UpdateState.UpToDate -> {
+            androidx.compose.runtime.LaunchedEffect(Unit) {
+                android.widget.Toast.makeText(context, "已是最新版本", android.widget.Toast.LENGTH_SHORT).show()
+                vm.resetUpdateState()
+            }
+        }
+        is dev.rulesearch.app.UpdateState.Error -> {
+            androidx.compose.runtime.LaunchedEffect(Unit) {
+                android.widget.Toast.makeText(context, "检查失败，请稍后再试", android.widget.Toast.LENGTH_SHORT).show()
+                vm.resetUpdateState()
+            }
+        }
+        else -> {}
     }
 }
 

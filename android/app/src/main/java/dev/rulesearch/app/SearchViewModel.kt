@@ -221,6 +221,28 @@ fun parseTimeMs(s: String): Long? {
 }
 
 /** 薄 ViewModel：调 Python 引擎 + 解析 JSON + 本地状态持久化。 */
+/** 检查更新状态 */
+sealed interface UpdateState {
+    data object Idle : UpdateState
+    data object Checking : UpdateState
+    data object UpToDate : UpdateState
+    data class Available(val latest: String, val url: String, val notes: String) : UpdateState
+    data object Error : UpdateState
+}
+
+/** 比较版本号：返回 >0 表示 latest 更新，0 表示相等，<0 表示 current 更新 */
+fun compareVersions(current: String, latest: String): Int {
+    val cur = current.trimStart('v').split(".").map { it.toIntOrNull() ?: 0 }
+    val lat = latest.trimStart('v').split(".").map { it.toIntOrNull() ?: 0 }
+    val n = maxOf(cur.size, lat.size)
+    for (i in 0 until n) {
+        val c = cur.getOrElse(i) { 0 }
+        val l = lat.getOrElse(i) { 0 }
+        if (l != c) return l - c
+    }
+    return 0
+}
+
 class SearchViewModel(app: Application) : AndroidViewModel(app) {
     // 搜索框 FLIP 动画是否已播过（切 tab 不重播）
     var flipPlayedForKeyword: String? = null
@@ -293,6 +315,60 @@ class SearchViewModel(app: Application) : AndroidViewModel(app) {
     /** 累计过滤掉的条数（持久化，设置页内容过滤中展示） */
     var totalFiltered by mutableStateOf(0L)
         private set
+
+    /** 检查更新状态 */
+    var updateState by mutableStateOf<UpdateState>(UpdateState.Idle)
+        private set
+
+    /** 检查 GitHub 最新 Release，与当前版本比较 */
+    fun checkForUpdate() {
+        if (updateState is UpdateState.Checking) return
+        updateState = UpdateState.Checking
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val conn = URL("https://api.github.com/repos/Maomaokuxs/rulesearch/releases/latest").openConnection() as HttpURLConnection
+                conn.requestMethod = "GET"
+                conn.connectTimeout = 10000
+                conn.readTimeout = 10000
+                conn.setRequestProperty("Accept", "application/vnd.github+json")
+                conn.setRequestProperty("User-Agent", "RuleSearch")
+                val code = conn.responseCode
+                if (code != 200) {
+                    conn.disconnect()
+                    withContext(Dispatchers.Main) { updateState = UpdateState.Error }
+                    return@launch
+                }
+                val body = conn.inputStream.bufferedReader().readText()
+                conn.disconnect()
+                val json = JSONObject(body)
+                val tagName = json.optString("tag_name", "")
+                val htmlUrl = json.optString("html_url", "https://github.com/Maomaokuxs/rulesearch/releases")
+                val notes = json.optString("body", "")
+                val current = try {
+                    val info = getApplication<Application>().packageManager.getPackageInfo(
+                        getApplication<Application>().packageName, 0
+                    )
+                    @Suppress("DEPRECATION")
+                    info.versionName ?: "0.0.0"
+                } catch (e: Exception) { "0.0.0" }
+                val result: UpdateState = if (tagName.isBlank()) {
+                    UpdateState.Error
+                } else if (compareVersions(current, tagName) > 0) {
+                    UpdateState.Available(tagName, htmlUrl, notes)
+                } else {
+                    UpdateState.UpToDate
+                }
+                withContext(Dispatchers.Main) { updateState = result }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) { updateState = UpdateState.Error }
+            }
+        }
+    }
+
+    /** 重置更新状态（弹窗关闭后调用） */
+    fun resetUpdateState() {
+        updateState = UpdateState.Idle
+    }
     /** 多选模式 */
     var selectionMode by mutableStateOf(false)
     /** 多选选中的 url */
