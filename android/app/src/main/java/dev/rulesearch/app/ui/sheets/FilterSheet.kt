@@ -28,6 +28,8 @@ import androidx.compose.ui.unit.sp
 import dev.rulesearch.app.PAN_BRAND_DEFS
 import dev.rulesearch.app.SearchViewModel
 import dev.rulesearch.app.SortMode
+import dev.rulesearch.app.SizeFilter
+import dev.rulesearch.app.TimeFilter
 import top.yukonga.miuix.kmp.basic.Switch
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.theme.MiuixTheme
@@ -43,19 +45,19 @@ internal fun FilterSheet(vm: SearchViewModel, onDismiss: () -> Unit) {
         Column(
             modifier = Modifier.fillMaxWidth()
                 .padding(horizontal = 20.dp)
-                .padding(bottom = 28.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
+                .padding(bottom = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(0.dp),
         ) {
             Text(
                 text = "筛选",
-                fontSize = 17.sp,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(bottom = 8.dp),
+                fontSize = 20.sp,
+                fontWeight = FontWeight.ExtraBold,
+                modifier = Modifier.padding(top = 20.dp, bottom = 16.dp),
             )
             FilterSectionLabel("排序方式")
             Row(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.padding(bottom = 12.dp),
+                modifier = Modifier.padding(bottom = 16.dp),
             ) {
                 listOf(SortMode.DEFAULT, SortMode.SIZE_DESC, SortMode.TIME_DESC).forEach { mode ->
                     FilterChip(
@@ -69,7 +71,7 @@ internal fun FilterSheet(vm: SearchViewModel, onDismiss: () -> Unit) {
                 FilterSectionLabel("网盘")
                 LazyRow(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.padding(bottom = 12.dp),
+                    modifier = Modifier.padding(bottom = 16.dp),
                 ) {
                     items(vm.tabPanBrands, key = { it }) { brand ->
                         val shown = brand !in vm.hiddenPanBrands
@@ -83,22 +85,67 @@ internal fun FilterSheet(vm: SearchViewModel, onDismiss: () -> Unit) {
                     }
                 }
             }
+            FilterSectionLabel("文件大小")
             Row(
-                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.padding(bottom = 16.dp),
+            ) {
+                SizeFilter.entries.forEach { f ->
+                    FilterChip(
+                        label = f.label,
+                        selected = vm.sizeFilter == f,
+                        onClick = { vm.sizeFilter = f },
+                    )
+                }
+            }
+            FilterSectionLabel("更新时间")
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.padding(bottom = 16.dp),
+            ) {
+                TimeFilter.entries.forEach { f ->
+                    FilterChip(
+                        label = f.label,
+                        selected = vm.timeFilter == f,
+                        onClick = { vm.timeFilter = f },
+                    )
+                }
+            }
+            // 仅看有效链接：独立卡片行（图标 + 标题 + 说明 + Switch），cardGray 背景 + 16dp 圆角
+            Row(
+                modifier = Modifier.fillMaxWidth()
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(cardGray())
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Column(modifier = Modifier.weight(1f)) {
+                Box(
+                    modifier = Modifier.size(32.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(MiuixTheme.colorScheme.primary.copy(alpha = 0.12f)),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        text = "✓",
+                        fontSize = 16.sp,
+                        color = MiuixTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Bold,
+                    )
+                }
+                Column(
+                    modifier = Modifier.weight(1f).padding(start = 12.dp),
+                ) {
                     Text(text = "仅看有效链接", fontSize = 15.sp)
-                    if (vm.checkingLinks) {
-                        val prog = vm.checkProgress
-                        Text(
-                            text = if (prog != null) "检测中 ${prog.first}/${prog.second}…"
-                            else "检测中…",
-                            fontSize = 12.sp,
-                            color = MiuixTheme.colorScheme.secondary,
-                            modifier = Modifier.padding(top = 2.dp),
-                        )
-                    }
+                    Text(
+                        text = if (vm.checkingLinks) {
+                            val prog = vm.checkProgress
+                            if (prog != null) "检测中 ${prog.first}/${prog.second}…"
+                            else "检测中…"
+                        } else "只显示检测可访问的网盘链接",
+                        fontSize = 12.sp,
+                        color = MiuixTheme.colorScheme.secondary,
+                        modifier = Modifier.padding(top = 2.dp),
+                    )
                 }
                 Switch(
                     checked = vm.onlyReachable,
@@ -133,13 +180,13 @@ internal fun FilterSheet(vm: SearchViewModel, onDismiss: () -> Unit) {
 private fun FilterSectionLabel(text: String) {
     Text(
         text = text,
-        fontSize = 14.sp,
+        fontSize = 13.sp,
         color = MiuixTheme.colorScheme.secondary,
-        modifier = Modifier.padding(bottom = 8.dp),
+        modifier = Modifier.padding(top = 16.dp, bottom = 8.dp),
     )
 }
 
-/** 筛选胶囊：选中态染主色底 + 主色字。 */
+/** 筛选胶囊：选中态主色底 + 白字，未选中 cardGray 底 + 主文字色。 */
 @Composable
 private fun FilterChip(
     label: String,
@@ -150,23 +197,23 @@ private fun FilterChip(
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp),
-        modifier = Modifier.clip(CircleShape)
+        modifier = Modifier.clip(RoundedCornerShape(12.dp))
             .background(
-                if (selected) MiuixTheme.colorScheme.primaryContainer
+                if (selected) MiuixTheme.colorScheme.primary
                 else cardGray(),
             )
             .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 10.dp),
+            .padding(horizontal = 14.dp, vertical = 8.dp),
     ) {
         if (dotColor != null) {
             Box(
-                modifier = Modifier.size(8.dp).clip(CircleShape).background(dotColor),
+                modifier = Modifier.size(6.dp).clip(CircleShape).background(dotColor),
             )
         }
         Text(
             text = label,
             fontSize = 15.sp,
-            color = if (selected) MiuixTheme.colorScheme.primary else MiuixTheme.colorScheme.onSurface,
+            color = if (selected) Color.White else MiuixTheme.colorScheme.onSurface,
         )
     }
 }

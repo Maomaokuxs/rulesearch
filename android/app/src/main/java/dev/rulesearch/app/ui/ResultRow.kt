@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.Icon
@@ -49,7 +50,7 @@ fun highlightTitle(title: String, keyword: String, highlight: Color): AnnotatedS
     }
 }
 
-/** 结果行第二行：磁力显示来源站点 · 大小/时间；网盘只显示大小/时间（无品牌标示）。 */
+/** 结果行第二行：磁力显示来源站点 · 大小/时间；网盘显示 [网盘徽章] [源名称] · 大小/时间。 */
 @Composable
 fun ResultMetaLine(r: SearchResultUi) {
     val brand = panBrandOf(r.url)
@@ -67,9 +68,25 @@ fun ResultMetaLine(r: SearchResultUi) {
                 TextLine(" · $meta")
             }
         } else {
-            // 网盘：不显示品牌圆点和品牌名，直接显示大小/时间
+            // 网盘：[网盘徽章] [源名称] · 大小/时间
+            val primary = MiuixTheme.colorScheme.primary
+            Box(
+                modifier = Modifier.clip(androidx.compose.foundation.shape.RoundedCornerShape(6.dp))
+                    .background(primary.copy(alpha = 0.12f))
+                    .padding(horizontal = 6.dp, vertical = 2.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                top.yukonga.miuix.kmp.basic.Text(
+                    text = brand,
+                    fontSize = 12.sp,
+                    color = primary,
+                    maxLines = 1,
+                )
+            }
+            Spacer(Modifier.width(6.dp))
+            TextLine(r.source)
             if (meta.isNotEmpty()) {
-                TextLine(meta)
+                TextLine(" · $meta")
             }
         }
     }
@@ -99,14 +116,15 @@ fun ResultRow(
     onLongClick: () -> Unit = {},
 ) {
     val primary = MiuixTheme.colorScheme.primary
-    Column {
-        Row(
-            modifier = Modifier.fillMaxWidth()
-                .combinedClickable(onClick = onClick, onLongClick = onLongClick)
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-            // 顶部对齐：标题 1 行/2 行时右侧指示器位置不动
-            verticalAlignment = Alignment.Top,
-        ) {
+    Row(
+        modifier = Modifier.fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(cardBackground())
+            .combinedClickable(onClick = onClick, onLongClick = onLongClick)
+            .padding(horizontal = 16.dp, vertical = 13.dp),
+        // 顶部对齐：标题 1 行/2 行时右侧指示器位置不动
+        verticalAlignment = Alignment.Top,
+    ) {
             Column(
                 modifier = Modifier.weight(1f),
             ) {
@@ -137,8 +155,6 @@ fun ResultRow(
                     )
                 }
             }
-        }
-        ResultDivider()
     }
 }
 

@@ -13,6 +13,7 @@ import androidx.compose.ui.zIndex
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
@@ -180,10 +181,7 @@ internal fun ResultsView(
                         )
                     }
                     Box(
-                        modifier = Modifier.weight(1f).fillMaxWidth()
-                            .padding(top = 8.dp)
-                            .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
-                            .background(if (isSystemInDarkTheme()) Color(0xFF1E1E1E) else Color.White),
+                        modifier = Modifier.weight(1f).fillMaxWidth(),
                         contentAlignment = Alignment.Center,
                     ) {
                         Text(
@@ -206,24 +204,18 @@ internal fun ResultsView(
                         .padding(horizontal = 16.dp)
                         .padding(top = 12.dp),
                 )
-                // 结果列表圆角容器：顶部 16dp 圆角
-                Box(
-                    modifier = Modifier.weight(1f).fillMaxWidth()
-                        .padding(top = 8.dp)
-                        .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
-                        .background(if (isSystemInDarkTheme()) Color(0xFF1E1E1E) else Color.White),
-                ) {
-                    Crossfade(
-                        targetState = showSkeleton,
-                        animationSpec = tween(200),
-                        modifier = Modifier.fillMaxSize(),
-                        label = "skeleton_content",
-                    ) { skeleton ->
+                // 结果列表：每条独立卡片流（无大容器）
+                Crossfade(
+                    targetState = showSkeleton,
+                    animationSpec = tween(200),
+                    modifier = Modifier.weight(1f).fillMaxWidth(),
+                    label = "skeleton_content",
+                ) { skeleton ->
                         if (skeleton) {
                             SkeletonRows()
                         } else if (vm.results.isEmpty()) {
                             Box(
-                                modifier = Modifier.fillMaxSize().padding(bottom = 80.dp),
+                                modifier = Modifier.fillMaxSize(),
                                 contentAlignment = Alignment.Center,
                             ) {
                                 Text(
@@ -235,6 +227,8 @@ internal fun ResultsView(
                         } else {
                             LazyColumn(
                                 modifier = Modifier.fillMaxSize(),
+                                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp),
                             ) {
                                 items(vm.currentTabResults, key = { it.url }) { r ->
                                     ResultRow(
@@ -257,7 +251,6 @@ internal fun ResultsView(
                                 }
                             }
                         }
-                    }
                 }
             }
         }
@@ -278,13 +271,16 @@ internal fun ResultsView(
 @Composable
 private fun SkeletonRows() {
     val brush = shimmerBrush()
-    val hairline = if (isSystemInDarkTheme()) Color(0xFF1C1C1C) else Color(0xFFECECEC)
     Column(
-        modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
+        modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        repeat(8) { i ->
+        repeat(8) {
             Row(
-                modifier = Modifier.fillMaxWidth().padding(vertical = 13.dp),
+                modifier = Modifier.fillMaxWidth()
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(cardBackground())
+                    .padding(horizontal = 16.dp, vertical = 13.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Column(modifier = Modifier.weight(1f)) {
@@ -305,12 +301,6 @@ private fun SkeletonRows() {
                     modifier = Modifier.size(8.dp)
                         .clip(CircleShape)
                         .background(brush),
-                )
-            }
-            if (i < 3) {
-                Box(
-                    modifier = Modifier.fillMaxWidth().height(1.dp)
-                        .background(hairline),
                 )
             }
         }

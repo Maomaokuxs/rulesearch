@@ -4,13 +4,17 @@ import android.content.Intent
 import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -30,11 +34,16 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.rulesearch.app.LinkStatus
@@ -53,6 +62,34 @@ fun extractCode(title: String): String? =
         ?.groupValues?.getOrNull(2)
         ?.takeIf { it.any(Char::isDigit) || it.length >= 4 }
 
+/** 标题关键词高亮：keyword 在标题中的出现处染主色。 */
+@Composable
+private fun highlightedTitle(title: String, keyword: String): AnnotatedString {
+    val primary = MiuixTheme.colorScheme.primary
+    return remember(title, keyword, primary) {
+        buildAnnotatedString {
+            val kw = keyword.trim()
+            if (kw.isEmpty()) {
+                append(title)
+            } else {
+                var startIndex = 0
+                while (true) {
+                    val idx = title.indexOf(kw, startIndex, ignoreCase = true)
+                    if (idx < 0) {
+                        append(title.substring(startIndex))
+                        break
+                    }
+                    append(title.substring(startIndex, idx))
+                    withStyle(SpanStyle(color = primary)) {
+                        append(title.substring(idx, idx + kw.length))
+                    }
+                    startIndex = idx + kw.length
+                }
+            }
+        }
+    }
+}
+
 /** 点结果行后的底部详情弹层：只做"拿走"这一件事。 */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -70,6 +107,7 @@ fun ResultSheet(
     var showNoDl by remember { mutableStateOf(false) }
     val isMagnet = linkType == LinkTypes.MAGNET
     val code = remember(result) { extractCode(result.title) }
+    val primary = MiuixTheme.colorScheme.primary
 
     fun toast(msg: String) =
         Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
@@ -93,36 +131,28 @@ fun ResultSheet(
         }
     }
 
-    val statusText = when (status) {
-        LinkStatus.Checking -> "链接检测中…"
-        LinkStatus.Reachable -> "链接可访问"
-        LinkStatus.Unreachable -> "链接无法访问"
-        LinkStatus.Skipped -> "磁力链接，无需检测"
-    }
-    val statusColor = when (status) {
-        LinkStatus.Reachable -> COLOR_REACHABLE
-        LinkStatus.Unreachable -> MiuixTheme.colorScheme.error
-        else -> MiuixTheme.colorScheme.secondary
-    }
+    val keyword = vm?.keyword?.trim().orEmpty()
+    val titleAnnotated = highlightedTitle(result.title, keyword)
+    val isReachable = status == LinkStatus.Reachable && !checking && !isMagnet
+    val secondaryBtnBg = if (isSystemInDarkTheme()) Color(0xFF5A5A5A) else Color(0xFFE9E9EB)
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        containerColor = MiuixTheme.colorScheme.surface,
+        containerColor = cardBackground(),
     ) {
         Column(
             modifier = Modifier.fillMaxWidth()
-                .padding(horizontal = 20.dp)
-                .padding(bottom = 28.dp),
+                .padding(start = 20.dp, end = 20.dp, top = 16.dp, bottom = 24.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            // 标题 + 收藏星标
+            // 标题 + 收藏星标（关键词高亮）
             Row(verticalAlignment = Alignment.Top) {
                 Text(
-                    text = result.title,
+                    text = titleAnnotated,
                     fontSize = 17.sp,
-                    fontWeight = FontWeight.Bold,
-                    lineHeight = 20.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    lineHeight = 22.sp,
                     maxLines = 3,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f),
@@ -141,33 +171,67 @@ fun ResultSheet(
                             imageVector = if (favored) Icons.Filled.Favorite
                             else Icons.Filled.FavoriteBorder,
                             contentDescription = if (favored) "取消收藏" else "收藏",
-                            tint = if (favored) MiuixTheme.colorScheme.primary
+                            tint = if (favored) primary
                             else MiuixTheme.colorScheme.secondary,
                             modifier = Modifier.size(22.dp),
                         )
                     }
                 }
             }
-            // 元信息：类型 · 大小/时间 · 来源 · 存活状态
-            val meta = result.size.ifEmpty { result.time }
-            Text(
-                text = buildString {
-                    append(linkType.label)
-                    if (meta.isNotEmpty()) append(" · $meta")
-                    append(" · ${result.source}")
-                    append(" · $statusText")
-                },
-                fontSize = 12.sp,
-                color = statusColor,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-            )
-            // 链接行：可点 + 复制
+            // 状态标签：只有检测有效时显示（绿点 + 链接有效）
+            if (isReachable) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier = Modifier.size(6.dp).clip(CircleShape)
+                            .background(COLOR_REACHABLE),
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        text = "链接有效",
+                        fontSize = 12.sp,
+                        color = COLOR_REACHABLE,
+                    )
+                }
+            }
+            // 元信息：网盘徽章 + 大小/时间 · 来源
             Row(verticalAlignment = Alignment.CenterVertically) {
+                if (!isMagnet) {
+                    // 网盘徽章：圆角 6dp，主色 12% 背景，主色文字
+                    Box(
+                        modifier = Modifier.clip(RoundedCornerShape(6.dp))
+                            .background(primary.copy(alpha = 0.12f))
+                            .padding(horizontal = 8.dp, vertical = 4.dp),
+                    ) {
+                        Text(
+                            text = linkType.label,
+                            fontSize = 12.sp,
+                            color = primary,
+                        )
+                    }
+                    Spacer(Modifier.width(8.dp))
+                }
+                val sizeTime = result.size.ifEmpty { result.time }
+                val metaText = buildString {
+                    if (sizeTime.isNotEmpty()) append(sizeTime)
+                    if (isNotEmpty()) append(" · ")
+                    append(result.source)
+                }
                 Text(
-                    text = result.url,
+                    text = metaText,
+                    fontSize = 12.sp,
+                    color = MiuixTheme.colorScheme.secondary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            // 链接行：截断显示 + 复制（复制完整链接）
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                val displayUrl =
+                    if (result.url.length > 32) result.url.take(32) + "..." else result.url
+                Text(
+                    text = displayUrl,
                     fontSize = 14.sp,
-                    color = MiuixTheme.colorScheme.primary,
+                    color = primary,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f),
@@ -183,7 +247,7 @@ fun ResultSheet(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     modifier = Modifier.fillMaxWidth()
                         .clip(RoundedCornerShape(16.dp))
-                        .background(cardBackground())
+                        .background(cardGray())
                         .clickable {
                             clipboard.setText(AnnotatedString(code))
                             toast("提取码已复制")
@@ -199,63 +263,51 @@ fun ResultSheet(
                         text = code,
                         fontSize = 20.sp,
                         fontWeight = FontWeight.Medium,
-                        fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                        fontFamily = FontFamily.Monospace,
                         letterSpacing = 6.sp,
                         modifier = Modifier.padding(top = 4.dp),
                     )
                 }
             }
-            // 底部三按钮：打开链接 ｜ 分享 ｜ 已检测有效（15px 蓝，均分）
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                    SheetTextButton(
-                        label = if (isMagnet) "用下载器打开" else "打开链接",
-                        primary = true,
-                    ) {
+            // 主按钮：打开链接（蓝色实心，48dp 高，16dp 圆角）
+            Box(
+                modifier = Modifier.fillMaxWidth().height(48.dp)
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(primary)
+                    .clickable {
                         if (openLink(context, result.url) { showNoDl = true }) {
                             onDismiss()
                         }
-                    }
-                }
-                Box(
-                    modifier = Modifier.size(1.dp, 20.dp)
-                        .background(MiuixTheme.colorScheme.outline),
+                    },
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    text = if (isMagnet) "用下载器打开" else "打开链接",
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = Color.White,
                 )
-                Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                    SheetTextButton(label = "分享", primary = true) {
+            }
+            // 次按钮：分享（灰底，48dp 高，16dp 圆角）
+            Box(
+                modifier = Modifier.fillMaxWidth().height(48.dp)
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(secondaryBtnBg)
+                    .clickable {
                         val text = "${result.title}\n${result.url}"
                         val intent = Intent(Intent.ACTION_SEND).apply {
                             type = "text/plain"
                             putExtra(Intent.EXTRA_TEXT, text)
                         }
                         context.startActivity(Intent.createChooser(intent, "分享"))
-                    }
-                }
-                if (!isMagnet) {
-                    Box(
-                        modifier = Modifier.size(1.dp, 20.dp)
-                            .background(MiuixTheme.colorScheme.outline),
-                    )
-                    Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                        // 已检测有效为纯状态展示，不可点
-                        val done = status == LinkStatus.Reachable && !checking
-                        if (done) {
-                            Text(
-                                text = "已检测有效",
-                                fontSize = 15.sp,
-                                color = COLOR_REACHABLE,
-                            )
-                        } else {
-                            SheetTextButton(
-                                label = if (checking) "检测中…" else "检测有效性",
-                                primary = true,
-                            ) { recheck() }
-                        }
-                    }
-                }
+                    },
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    text = "分享",
+                    fontSize = 16.sp,
+                    color = MiuixTheme.colorScheme.onSurface,
+                )
             }
         }
     }

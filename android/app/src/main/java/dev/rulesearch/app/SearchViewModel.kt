@@ -171,6 +171,22 @@ enum class SortMode(val label: String) {
     SOURCE("来源"),
 }
 
+/** 文件大小筛选。 */
+enum class SizeFilter(val label: String) {
+    ALL("全部"),
+    SMALL("< 1GB"),
+    MEDIUM("1-5GB"),
+    LARGE("> 5GB"),
+}
+
+/** 更新时间筛选。 */
+enum class TimeFilter(val label: String) {
+    ALL("全部"),
+    TODAY("今天"),
+    LAST_3_DAYS("近 3 天"),
+    LAST_7_DAYS("近 7 天"),
+}
+
 /** 把 "1.2GB"/"500 MB"/"800KB" 转成字节数，解析不出返回 null。 */
 fun parseSizeBytes(s: String): Long? {
     val t = s.trim().uppercase(Locale.ROOT).replace(" ", "")
@@ -243,12 +259,16 @@ class SearchViewModel(app: Application) : AndroidViewModel(app) {
         private set
     /** 排序方式 */
     var sortMode by mutableStateOf(SortMode.DEFAULT)
-    /** 只显示可访问的链接（筛选框选项，开启后自动检测） */
-    var onlyReachable by mutableStateOf(false)
+    /** 只显示可访问的链接（筛选框选项，开启后自动检测；持久化，重启仍保持） */
+    var onlyReachable by mutableStateOf(prefs.getBoolean("only_reachable", false))
         private set
     /** 被筛掉的网盘品牌（在筛选框里取消勾选的） */
     var hiddenPanBrands by mutableStateOf<Set<String>>(emptySet())
         private set
+    /** 文件大小筛选 */
+    var sizeFilter by mutableStateOf(SizeFilter.ALL)
+    /** 更新时间筛选 */
+    var timeFilter by mutableStateOf(TimeFilter.ALL)
     /** 收藏列表 */
     var favorites by mutableStateOf<List<FavoriteUi>>(emptyList())
         private set
@@ -264,6 +284,9 @@ class SearchViewModel(app: Application) : AndroidViewModel(app) {
     private var allBlockedWords: List<String> = emptyList()
     /** 内置词表（Python 侧读取，用于界面过滤显示） */
     private var builtinWords: Set<String> = emptySet()
+
+    /** 内置词表（只读，供内容过滤页展示；不可删除）。 */
+    val builtinBlockedWords: List<String> get() = builtinWords.sorted()
     /** 本次搜索被过滤掉的条数 */
     var filteredCount by mutableIntStateOf(0)
         private set
@@ -335,7 +358,6 @@ class SearchViewModel(app: Application) : AndroidViewModel(app) {
         searched = true
         selectionMode = false
         selectedUrls = emptySet()
-        onlyReachable = false
         hiddenPanBrands = emptySet()
         searchJob?.cancel()
         val gen = ++searchGen
@@ -424,7 +446,6 @@ class SearchViewModel(app: Application) : AndroidViewModel(app) {
         searched = false
         selectionMode = false
         selectedUrls = emptySet()
-        onlyReachable = false
         linkStatus = emptyMap()
         checkProgress = null
     }
@@ -877,6 +898,7 @@ class SearchViewModel(app: Application) : AndroidViewModel(app) {
     /** 筛选框"只显示可访问的链接"开关：开启时若还没检测过就自动跑一遍。 */
     fun setOnlyReachableFilter(v: Boolean) {
         onlyReachable = v
+        prefs.edit().putBoolean("only_reachable", v).apply()
         if (v && linkStatus.isEmpty() && !checkingLinks) {
             checkAllLinks()
         }
@@ -903,6 +925,29 @@ class SearchViewModel(app: Application) : AndroidViewModel(app) {
             .filter { r ->
                 val brand = panBrandOf(r.url)
                 brand == null || brand !in hiddenPanBrands
+            }
+            // 文件大小筛选：无大小信息的不过滤
+            .filter { r ->
+                val bytes = parseSizeBytes(r.size)
+                bytes == null || when (sizeFilter) {
+                    SizeFilter.ALL -> true
+                    SizeFilter.SMALL -> bytes < 1L * 1024 * 1024 * 1024
+                    SizeFilter.MEDIUM -> bytes in (1L * 1024 * 1024 * 1024)..(5L * 1024 * 1024 * 1024)
+                    SizeFilter.LARGE -> bytes > 5L * 1024 * 1024 * 1024
+                }
+            }
+            // 更新时间筛选：解析失败的不过滤
+            .filter { r ->
+                val ms = parseTimeMs(r.time)
+                ms == null || when (timeFilter) {
+                    TimeFilter.ALL -> true
+                    TimeFilter.TODAY -> {
+                        val fmt = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault())
+                        fmt.format(java.util.Date(ms)) == fmt.format(java.util.Date())
+                    }
+                    TimeFilter.LAST_3_DAYS -> System.currentTimeMillis() - ms <= 3L * 24 * 60 * 60 * 1000
+                    TimeFilter.LAST_7_DAYS -> System.currentTimeMillis() - ms <= 7L * 24 * 60 * 60 * 1000
+                }
             }
         when (sortMode) {
             SortMode.DEFAULT -> list

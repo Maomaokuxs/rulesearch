@@ -1,7 +1,9 @@
 package dev.rulesearch.app.ui
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -14,8 +16,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
@@ -27,6 +29,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -56,18 +59,16 @@ fun BlocklistPage(vm: SearchViewModel) {
     }
     // 多选模式下按返回先退出多选，不直接回上级菜单
     BackHandler(enabled = selectionMode) { exitSelection() }
-    Column(
-        modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
+    val userWords = vm.blockedWords
+    Column(modifier = Modifier.fillMaxSize()) {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+            modifier = Modifier.fillMaxWidth().padding(start = 24.dp, end = 8.dp, top = 12.dp, bottom = 16.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
                 text = if (selectionMode) "已选 ${selectedWords.size} 项" else "内容过滤",
-                fontWeight = FontWeight.Bold,
+                fontWeight = FontWeight.ExtraBold,
                 fontSize = 32.sp,
             )
             Row(
@@ -86,29 +87,65 @@ fun BlocklistPage(vm: SearchViewModel) {
                         text = "取消",
                         onClick = { exitSelection() },
                     )
-                } else if (vm.blockedWords.isNotEmpty()) {
-                    TextButton(
-                        text = "清空",
-                        onClick = { showClearConfirm = true },
-                    )
                 }
             }
         }
         Text(
-            text = "标题含有以下词语的结果会被过滤，不区分大小写",
-            fontSize = 13.sp,
+            text = "标题含有以下词语的结果会被过滤，不区分大小写。",
+            fontSize = 14.sp,
             color = MiuixTheme.colorScheme.secondary,
+            modifier = Modifier.padding(horizontal = 16.dp),
         )
-        Text(
-            text = "累计已过滤 ${vm.totalFiltered} 条结果",
-            fontSize = 13.sp,
-            color = MiuixTheme.colorScheme.primary,
-            modifier = Modifier.padding(top = 2.dp),
-        )
+        // 统计卡片：漏斗图标 + 大数字 + 说明
+        Box(
+            modifier = Modifier.fillMaxWidth()
+                .padding(start = 16.dp, end = 16.dp, top = 12.dp)
+                .clip(RoundedCornerShape(16.dp))
+                .background(cardBackground())
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier.size(32.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(MiuixTheme.colorScheme.primary.copy(alpha = 0.12f)),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    val funnelColor = MiuixTheme.colorScheme.primary
+                    Canvas(modifier = Modifier.size(18.dp)) {
+                        val c = funnelColor
+                        val w = size.width
+                        val h = size.height
+                        val path = Path().apply {
+                            moveTo(w * 0.1f, h * 0.15f)
+                            lineTo(w * 0.9f, h * 0.15f)
+                            lineTo(w * 0.62f, h * 0.52f)
+                            lineTo(w * 0.62f, h * 0.88f)
+                            lineTo(w * 0.38f, h * 0.88f)
+                            lineTo(w * 0.38f, h * 0.52f)
+                            close()
+                        }
+                        drawPath(path, c)
+                    }
+                }
+                Column(modifier = Modifier.padding(start = 12.dp)) {
+                    Text(
+                        text = "${vm.totalFiltered}条",
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                    )
+                    Text(
+                        text = "累计已过滤结果",
+                        fontSize = 12.sp,
+                        color = MiuixTheme.colorScheme.secondary,
+                    )
+                }
+            }
+        }
         Row(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 12.dp),
         ) {
             TextField(
                 value = input,
@@ -118,78 +155,158 @@ fun BlocklistPage(vm: SearchViewModel) {
                 modifier = Modifier.weight(1f),
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
             )
-            Button(
-                onClick = {
-                    vm.addBlockedWord(input)
-                    input = ""
-                },
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(MiuixTheme.colorScheme.primary)
+                    .padding(horizontal = 20.dp, vertical = 12.dp)
+                    .clickable {
+                        vm.addBlockedWord(input)
+                        input = ""
+                    },
             ) {
-                Text("添加")
+                Text(
+                    text = "添加",
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MiuixTheme.colorScheme.onPrimary,
+                )
             }
         }
         LazyColumn(
             modifier = Modifier.fillMaxSize().weight(1f),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
-            contentPadding = PaddingValues(vertical = 4.dp),
+            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            items(vm.blockedWords, key = { it }) { w ->
-                val selected = w in selectedWords
+            // 自建词语：可删除
+            item {
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(48.dp)
-                        .combinedClickable(
-                            onClick = {
-                                if (selectionMode) {
-                                    selectedWords =
-                                        if (selected) selectedWords - w
-                                        else selectedWords + w
-                                }
-                            },
-                            onLongClick = {
-                                if (!selectionMode) {
-                                    selectionMode = true
-                                    selectedWords = setOf(w)
-                                }
-                            },
-                        ),
+                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 4.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
-                        text = w,
-                        fontSize = 14.sp,
-                        modifier = Modifier.weight(1f),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
+                        text = "我的过滤词 · ${userWords.size} 个",
+                        fontSize = 13.sp,
+                        color = MiuixTheme.colorScheme.secondary,
                     )
-                    // 勾选框放尾部；行高固定 48dp，两种模式纵向一致
-                    if (selectionMode) {
-                        Box(
-                            modifier = Modifier
-                                .padding(end = 12.dp)
-                                .size(20.dp)
-                                .clip(CircleShape)
-                                .background(
-                                    if (selected) MiuixTheme.colorScheme.primary
-                                    else MiuixTheme.colorScheme.surfaceContainerHighest,
-                                ),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            if (selected) {
-                                Icon(
-                                    imageVector = Icons.Filled.Check,
-                                    contentDescription = null,
-                                    tint = MiuixTheme.colorScheme.onPrimary,
-                                    modifier = Modifier.size(13.dp),
-                                )
+                    if (userWords.isNotEmpty()) {
+                        Text(
+                            text = "清空",
+                            fontSize = 13.sp,
+                            color = MiuixTheme.colorScheme.primary,
+                            modifier = Modifier.padding(end = 4.dp)
+                                .clickable { showClearConfirm = true },
+                        )
+                    }
+                }
+            }
+            if (userWords.isEmpty()) {
+                item {
+                    Box(
+                        modifier = Modifier.fillMaxWidth()
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(cardBackground())
+                            .padding(16.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(
+                            text = "暂无过滤词，添加后生效",
+                            fontSize = 14.sp,
+                            color = MiuixTheme.colorScheme.secondary,
+                        )
+                    }
+                }
+            } else {
+                item {
+                    Box(
+                        modifier = Modifier.fillMaxWidth()
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(cardBackground())
+                            .padding(vertical = 4.dp),
+                    ) {
+                        Column {
+                            userWords.forEachIndexed { i, w ->
+                                val selected = w in selectedWords
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(52.dp)
+                                        .combinedClickable(
+                                            onClick = {
+                                                if (selectionMode) {
+                                                    selectedWords =
+                                                        if (selected) selectedWords - w
+                                                        else selectedWords + w
+                                                }
+                                            },
+                                            onLongClick = {
+                                                if (!selectionMode) {
+                                                    selectionMode = true
+                                                    selectedWords = setOf(w)
+                                                }
+                                            },
+                                        )
+                                        .padding(horizontal = 16.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Text(
+                                        text = w,
+                                        fontSize = 17.sp,
+                                        modifier = Modifier.weight(1f),
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                    )
+                                    // 勾选框放尾部；多选/正常两种模式行高一致
+                                    if (selectionMode) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(20.dp)
+                                                .clip(CircleShape)
+                                                .background(
+                                                    if (selected) MiuixTheme.colorScheme.primary
+                                                    else MiuixTheme.colorScheme.surfaceContainerHighest,
+                                                ),
+                                            contentAlignment = Alignment.Center,
+                                        ) {
+                                            if (selected) {
+                                                Icon(
+                                                    imageVector = Icons.Filled.Check,
+                                                    contentDescription = null,
+                                                    tint = MiuixTheme.colorScheme.onPrimary,
+                                                    modifier = Modifier.size(13.dp),
+                                                )
+                                            }
+                                        }
+                                    } else {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(28.dp)
+                                                .clip(CircleShape)
+                                                .background(cardGray())
+                                                .padding(0.dp)
+                                                .clickable { vm.removeBlockedWord(w) },
+                                            contentAlignment = Alignment.Center,
+                                        ) {
+                                            Text(
+                                                text = "×",
+                                                fontSize = 16.sp,
+                                                color = MiuixTheme.colorScheme.secondary,
+                                            )
+                                        }
+                                    }
+                                }
+                                if (i < userWords.size - 1) {
+                                    Box(
+                                        modifier = Modifier.fillMaxWidth()
+                                            .padding(horizontal = 16.dp)
+                                            .height(1.dp)
+                                            .background(MiuixTheme.colorScheme.secondary.copy(alpha = 0.12f)),
+                                    )
+                                }
                             }
                         }
-                    } else {
-                        TextButton(
-                            text = "删除",
-                            onClick = { vm.removeBlockedWord(w) },
-                        )
                     }
                 }
             }

@@ -75,7 +75,10 @@ fun AppRoot(
         goTab(0)
     }
 
+    // Scaffold 默认 containerColor 是 surface（浅色白），而页面背景是 pageBackground()（浅色 #F2F3F5），
+    // 状态栏后面会露出一道白条；统一成 pageBackground() 让状态栏与页面同色。
     Scaffold(
+        containerColor = pageBackground(),
         bottomBar = {
             NavigationBar(
                 color = if (androidx.compose.foundation.isSystemInDarkTheme()) androidx.compose.ui.graphics.Color(0xFF1A1A1A) else androidx.compose.ui.graphics.Color.White,
