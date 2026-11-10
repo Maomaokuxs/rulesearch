@@ -2,15 +2,19 @@ package dev.rulesearch.app.ui
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.FavoriteBorder
@@ -26,6 +30,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -35,6 +40,7 @@ import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.viewmodel.compose.viewModel
 import dev.rulesearch.app.SearchViewModel
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.basic.Button
 import top.yukonga.miuix.kmp.basic.Card
@@ -44,7 +50,7 @@ import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
-/** 底部 dock 标签页：搜索 / 收藏 / 我的，tab 点击淡入淡出切换，横滑保留滑动。 */
+/** 底部 dock 标签页：搜索 / 收藏 / 我的，tab 点击淡出滑出 + 滑入淡入切换，横滑保留滑动。 */
 @Composable
 fun AppRoot(
     vm: SearchViewModel = viewModel(),
@@ -56,16 +62,30 @@ fun AppRoot(
     // 0=搜索，1=收藏，2=我的
     val pagerState = rememberPagerState(pageCount = { 3 })
     val scope = rememberCoroutineScope()
-    // tab 切换淡入淡出：淡出当前页 -> 瞬间跳页 -> 淡入新页，不经过中间页
+    // tab 切换过渡：淡出 + 向目标方向轻移 -> 瞬间跳页（不经过中间页）-> 反向滑入 + 淡入，
+    // FastOutSlowIn 缓动；从当前值起动画，快速连点取消前一个也不跳变
     var pageAlpha by remember { mutableStateOf(1f) }
+    var pageOffsetX by remember { mutableStateOf(0f) }
+    val slidePx = with(LocalDensity.current) { 28.dp.toPx() }
     var fadeJob by remember { mutableStateOf<Job?>(null) }
     fun goTab(i: Int) {
         if (pagerState.currentPage == i) return
         fadeJob?.cancel()
+        // 方向约定：目标索引更大 → 新页从右侧滑入（旧页向左滑出）；目标索引更小 → 新页从左侧滑入（旧页向右滑出）
+        val dir = if (i > pagerState.currentPage) -1f else 1f
         fadeJob = scope.launch {
-            Animatable(1f).animateTo(0f, tween(150)) { pageAlpha = value }
+            // 出场：160ms 淡出 + 向目标方向滑出
+            coroutineScope {
+                launch { Animatable(pageAlpha).animateTo(0f, tween(160, easing = FastOutSlowInEasing)) { pageAlpha = value } }
+                launch { Animatable(pageOffsetX).animateTo(slidePx * dir, tween(160, easing = FastOutSlowInEasing)) { pageOffsetX = value } }
+            }
             pagerState.scrollToPage(i)
-            Animatable(0f).animateTo(1f, tween(150)) { pageAlpha = value }
+            pageOffsetX = -slidePx * dir
+            // 入场：240ms 从反方向滑入 + 淡入
+            coroutineScope {
+                launch { Animatable(0f).animateTo(1f, tween(240, easing = FastOutSlowInEasing)) { pageAlpha = value } }
+                launch { Animatable(-slidePx * dir).animateTo(0f, tween(240, easing = FastOutSlowInEasing)) { pageOffsetX = value } }
+            }
         }
     }
 
@@ -80,9 +100,15 @@ fun AppRoot(
     Scaffold(
         containerColor = pageBackground(),
         bottomBar = {
-            NavigationBar(
-                color = if (androidx.compose.foundation.isSystemInDarkTheme()) androidx.compose.ui.graphics.Color(0xFF1A1A1A) else androidx.compose.ui.graphics.Color.White,
-            ) {
+            // 底部栏与页面背景同色（浅色 #F2F3F5 / 深色纯黑），只留一条 hairline 分隔，不再突兀。
+            Column {
+                Box(
+                    modifier = Modifier.fillMaxWidth().height(0.5.dp)
+                        .background(MiuixTheme.colorScheme.secondary.copy(alpha = 0.15f)),
+                )
+                NavigationBar(
+                    color = pageBackground(),
+                ) {
                 val navColors = top.yukonga.miuix.kmp.basic.NavigationBarDefaults.navigationBarItemColors(
                     selectedContentColor = MiuixTheme.colorScheme.primary,
                     unselectedContentColor = MiuixTheme.colorScheme.secondary,
@@ -108,13 +134,14 @@ fun AppRoot(
                     label = "我的",
                     colors = navColors,
                 )
+                }
             }
         },
     ) { padding ->
         Box(modifier = Modifier.padding(padding)) {
             HorizontalPager(
                 state = pagerState,
-                modifier = Modifier.fillMaxSize().graphicsLayer { alpha = pageAlpha },
+                modifier = Modifier.fillMaxSize().graphicsLayer { alpha = pageAlpha; translationX = pageOffsetX },
             ) { page ->
                 when (page) {
                     0 -> SearchTab(
