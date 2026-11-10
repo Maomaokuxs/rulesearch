@@ -9,8 +9,6 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.ui.zIndex
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
@@ -34,7 +32,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
@@ -50,18 +47,16 @@ import top.yukonga.miuix.kmp.basic.Button
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import android.os.SystemClock
+import androidx.compose.animation.AnimatedContentScope
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
-import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.ExperimentalSharedTransitionApi
+import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.animation.core.LinearEasing
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.offset
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.ui.graphics.TransformOrigin
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.unit.IntOffset
-import kotlinx.coroutines.launch
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
@@ -69,32 +64,19 @@ import androidx.compose.ui.graphics.Color
 import kotlinx.coroutines.delay
 
 /** 结果页：单列结果行 + 顶部筛选入口（无 FAB）。 */
+@OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 internal fun ResultsView(
     vm: SearchViewModel,
-    initialKeyword: String?,
+    onSearchBoxClick: () -> Unit,
+    sharedTransitionScope: SharedTransitionScope,
+    animatedVisibilityScope: AnimatedContentScope,
     onResultClick: (SearchResultUi) -> Unit,
 ) {
     var showFilterSheet by remember { mutableStateOf(false) }
     val keyword = vm.keyword
     val focusManager = LocalFocusManager.current
 
-    // 搜索框 FLIP 入场：从首页位置（y+200dp、56dp 高）缩小上移到顶部（48dp），进入结果页时播放一次
-    val flipOffsetY = remember { Animatable(200f) }
-    val flipScale = remember { Animatable(56f / 48f) }
-    // 只在新关键词搜索时播 FLIP，切 tab/切分段不重播
-    LaunchedEffect(keyword) {
-        if (vm.flipPlayedForKeyword != keyword) {
-            vm.flipPlayedForKeyword = keyword
-            launch { flipOffsetY.animateTo(0f, tween(300)) }
-            launch { flipScale.animateTo(1f, tween(300)) }
-        } else {
-            flipOffsetY.snapTo(0f)
-            flipScale.snapTo(1f)
-        }
-    }
-
-    // 骨架屏最少显示 800ms，避免加载过快时闪烁
     var showSkeleton by remember { mutableStateOf(vm.loading) }
     val skeletonStart = remember { mutableLongStateOf(if (vm.loading) SystemClock.uptimeMillis() else 0L) }
     LaunchedEffect(vm.loading) {
@@ -112,33 +94,21 @@ internal fun ResultsView(
     Column(
         modifier = Modifier.fillMaxSize()
     ) {
-        // 顶栏 FLIP：从首页位置缩小上移到顶部（mock 方案4）
+        // 顶栏搜索框：静态展示，点开独立搜索页；与搜索页输入框共享元素过渡
         // 漏斗筛选按钮：无底灰色线形图标，有筛选条件时染蓝
         val filterActive = vm.sortMode != SortMode.DEFAULT ||
             vm.hiddenPanBrands.isNotEmpty() || vm.onlyReachable
-        val flipDensity = LocalDensity.current
-        Box(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(top = 8.dp)
-                .offset { with(flipDensity) { IntOffset(0, flipOffsetY.value.dp.roundToPx()) } }
-                .graphicsLayer {
-                    scaleX = flipScale.value
-                    scaleY = flipScale.value
-                    transformOrigin = TransformOrigin(0.5f, 0f)
-                },
-        ) {
-            var resShowDropdown by remember { mutableStateOf(false) }
-            SearchInput(
-                vm = vm,
-                initialKeyword = keyword.ifBlank { initialKeyword },
-                showDropdown = resShowDropdown,
-                onShowDropdownChange = { resShowDropdown = it },
-                compact = true,
-                showFunnel = true,
-                funnelActive = filterActive,
-                onFunnelClick = { showFilterSheet = true },
-                modifier = Modifier.fillMaxWidth(),
-            )
-        }
+        SearchBoxStatic(
+            displayText = keyword,
+            onClick = onSearchBoxClick,
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(top = 8.dp),
+            boxH = 48.dp,
+            showFunnel = true,
+            funnelActive = filterActive,
+            onFunnelClick = { showFilterSheet = true },
+            sharedTransitionScope = sharedTransitionScope,
+            animatedVisibilityScope = animatedVisibilityScope,
+        )
         // 多选模式指示行：已选 N 17sp 加粗黑 + 右取消 15sp 蓝
         if (vm.selectionMode) {
             Row(
@@ -204,13 +174,20 @@ internal fun ResultsView(
                         .padding(horizontal = 16.dp)
                         .padding(top = 12.dp),
                 )
-                // 结果列表：每条独立卡片流（无大容器）
-                Crossfade(
-                    targetState = showSkeleton,
-                    animationSpec = tween(200),
+                // 结果列表：进结果页时淡入（框先飞到位、列表晚 80ms 再出现）；
+                // 每条独立卡片流（无大容器）
+                AnimatedVisibility(
+                    visible = true,
+                    enter = fadeIn(tween(durationMillis = 300, delayMillis = 80)),
+                    exit = fadeOut(tween(durationMillis = 200)),
                     modifier = Modifier.weight(1f).fillMaxWidth(),
-                    label = "skeleton_content",
-                ) { skeleton ->
+                ) {
+                    Crossfade(
+                        targetState = showSkeleton,
+                        animationSpec = tween(200),
+                        modifier = Modifier.fillMaxSize(),
+                        label = "skeleton_content",
+                    ) { skeleton ->
                         if (skeleton) {
                             SkeletonRows()
                         } else if (vm.results.isEmpty()) {
@@ -251,6 +228,7 @@ internal fun ResultsView(
                                 }
                             }
                         }
+                    }
                 }
             }
         }
@@ -311,7 +289,7 @@ private fun SkeletonRows() {
 @Composable
 private fun shimmerBrush(): Brush {
     val base = cardGray()
-    val highlight = if (isSystemInDarkTheme()) Color(0xFF525252) else Color.White
+    val highlight = if (LocalIsDark.current) Color(0xFF525252) else Color.White
     val transition = rememberInfiniteTransition(label = "shimmer")
     val translate by transition.animateFloat(
         initialValue = 0f,

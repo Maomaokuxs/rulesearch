@@ -2,6 +2,9 @@ package dev.rulesearch.app.ui
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.ExperimentalSharedTransitionApi
+import androidx.compose.animation.SharedTransitionLayout
+import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -15,7 +18,10 @@ import androidx.compose.runtime.setValue
 import dev.rulesearch.app.SearchResultUi
 import dev.rulesearch.app.SearchViewModel
 
-/** 搜索页（底部 dock 的"搜索"标签）：首页居中搜索框，搜后进结果页。 */
+private enum class SearchTabScreen { HOME, SEARCH, RESULTS }
+
+/** 搜索页（底部 dock 的"搜索"标签）：首页 → 独立搜索页 → 结果页。 */
+@OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 fun SearchTab(
     vm: SearchViewModel,
@@ -23,6 +29,8 @@ fun SearchTab(
     autoOpenDialog: Boolean = false,
 ) {
     var selectedResult by remember { mutableStateOf<SearchResultUi?>(null) }
+    var searchPageOpen by remember { mutableStateOf(false) }
+    var searchPageInitialText by remember { mutableStateOf("") }
 
     // Deep link 带关键词进来：自动执行一次搜索
     LaunchedEffect(initialKeyword) {
@@ -40,30 +48,61 @@ fun SearchTab(
     }
 
     // 结果页按返回：回到首页（清空结果），而不是直接退出应用
-    //（弹层打开时返回键由 bottom sheet 自己消费；搜索中按返回会取消搜索）
-    BackHandler(enabled = vm.searched) {
+    //（弹层打开时返回键由 bottom sheet 自己消费；搜索中按返回会取消搜索；
+    // 搜索页打开时返回键由搜索页自己消费，先关搜索页）
+    BackHandler(enabled = vm.searched && !searchPageOpen) {
         vm.clearResults()
     }
 
-    // 首页 ↔ 结果页切换：淡入淡出
-    AnimatedContent(
-        targetState = vm.searched,
-        transitionSpec = {
-            fadeIn(tween(280)).togetherWith(fadeOut(tween(240)))
-        },
-        label = "home_results",
-    ) { searched ->
-        if (!searched) {
-            HomeView(vm = vm, initialKeyword = initialKeyword)
-        } else {
-            ResultsView(
-                vm = vm,
-                initialKeyword = initialKeyword,
-                onResultClick = {
-                    vm.addFootprint(it)
-                    selectedResult = it
-                },
-            )
+    // 首页 ↔ 搜索页 ↔ 结果页切换：淡入淡出；
+    // 搜索框三页共用同一共享元素（key "searchBox"）：首页 56dp -> 搜索页 48dp -> 结果页 48dp，
+    // 位置平滑过渡，文字不缩放。sharedBounds 三页无条件挂上（门控已删，见 SearchBar.kt）：
+    // 第一次过渡也必须有，门控会让退出侧上一帧布局里没有该元素、过渡只剩淡入淡出。
+    val screen = when {
+        searchPageOpen -> SearchTabScreen.SEARCH
+        vm.searched -> SearchTabScreen.RESULTS
+        else -> SearchTabScreen.HOME
+    }
+    SharedTransitionLayout {
+        val sharedTransitionScope = this
+        AnimatedContent(
+            targetState = screen,
+            transitionSpec = {
+                fadeIn(tween(280)).togetherWith(fadeOut(tween(240)))
+            },
+            label = "home_search_results",
+        ) { s ->
+            when (s) {
+                SearchTabScreen.HOME -> HomeView(
+                    vm = vm,
+                    onSearchBoxClick = {
+                        searchPageInitialText = ""
+                        searchPageOpen = true
+                    },
+                    sharedTransitionScope = sharedTransitionScope,
+                    animatedVisibilityScope = this@AnimatedContent,
+                )
+                SearchTabScreen.SEARCH -> SearchPage(
+                    vm = vm,
+                    initialText = searchPageInitialText,
+                    onClose = { searchPageOpen = false },
+                    sharedTransitionScope = sharedTransitionScope,
+                    animatedVisibilityScope = this@AnimatedContent,
+                )
+                SearchTabScreen.RESULTS -> ResultsView(
+                    vm = vm,
+                    onSearchBoxClick = {
+                        searchPageInitialText = vm.keyword
+                        searchPageOpen = true
+                    },
+                    sharedTransitionScope = sharedTransitionScope,
+                    animatedVisibilityScope = this@AnimatedContent,
+                    onResultClick = {
+                        vm.addFootprint(it)
+                        selectedResult = it
+                    },
+                )
+            }
         }
     }
 

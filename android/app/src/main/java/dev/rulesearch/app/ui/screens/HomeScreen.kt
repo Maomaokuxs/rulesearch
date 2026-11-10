@@ -1,12 +1,14 @@
 package dev.rulesearch.app.ui
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedContentScope
+import androidx.compose.animation.ExperimentalSharedTransitionApi
+import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.ui.zIndex
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -26,8 +28,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -36,26 +36,22 @@ import dev.rulesearch.app.SearchViewModel
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
-/** 首页：搜索框居中，下方横滑历史 chips。 */
+/** 首页：搜索框居中，下方横滑历史 chips。点搜索框进独立搜索页。 */
+@OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
-internal fun HomeView(vm: SearchViewModel, initialKeyword: String?) {
+internal fun HomeView(
+    vm: SearchViewModel,
+    onSearchBoxClick: () -> Unit,
+    sharedTransitionScope: SharedTransitionScope,
+    animatedVisibilityScope: AnimatedContentScope,
+) {
     fun go(kw: String) {
         vm.keyword = kw
         vm.search()
     }
 
-    val focusManager = LocalFocusManager.current
-    var showDropdown by remember { mutableStateOf(false) }
     Column(
-        modifier = Modifier.fillMaxSize().padding(top = 220.dp)
-            // 点空白处隐藏下拉
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null
-            ) {
-                showDropdown = false
-                focusManager.clearFocus()
-            },
+        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(top = 220.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Top,
     ) {
@@ -64,15 +60,18 @@ internal fun HomeView(vm: SearchViewModel, initialKeyword: String?) {
             fontWeight = FontWeight.ExtraBold,
             fontSize = 38.sp,
         )
-        SearchInput(
-            vm = vm,
-            initialKeyword = initialKeyword,
+        // 静态搜索框：只做展示，点开独立搜索页（下拉已删，不再被盖）
+        SearchBoxStatic(
+            displayText = "",
+            onClick = onSearchBoxClick,
             modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 16.dp),
-            showDropdown = showDropdown,
-            onShowDropdownChange = { showDropdown = it },
+            boxH = 56.dp,
+            showSearchButton = true,
+            sharedTransitionScope = sharedTransitionScope,
+            animatedVisibilityScope = animatedVisibilityScope,
         )
-        // 历史搜索：多行胶囊，长按进入编辑（右上角叉删除），返回键退出编辑
-        if (vm.history.isNotEmpty() && !showDropdown) {
+        // 历史搜索：下拉已删，胶囊不再被盖
+        if (vm.history.isNotEmpty()) {
             var histEdit by remember { mutableStateOf(false) }
             BackHandler(enabled = histEdit) { histEdit = false }
             HistoryFlow(
@@ -107,14 +106,14 @@ private fun HistoryFlow(
         history.forEach { h ->
             Box(
                 modifier = Modifier.clip(CircleShape)
-                    .background(cardGray())
+                    .background(cardBackground())
                     .combinedClickable(
                         onClick = {
                             if (editMode) onExitEdit() else onSearch(h)
                         },
                         onLongClick = { if (!editMode) onEnterEdit() },
                     )
-                    .padding(horizontal = 16.dp, vertical = 10.dp),
+                    .padding(horizontal = 14.dp, vertical = 8.dp),
             ) {
                 Text(
                     text = h,
