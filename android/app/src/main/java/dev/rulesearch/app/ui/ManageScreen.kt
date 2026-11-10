@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -57,7 +58,6 @@ import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
 import top.yukonga.miuix.kmp.basic.Switch
 import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /** 规则管理页（我的里的二级页面）：添加/检测/已添加列表，点行进详情。 */
@@ -141,8 +141,15 @@ fun ManageTab(vm: SearchViewModel) {
                         if (!checkingUpdates) {
                             scope.launch {
                                 checkingUpdates = true
-                                updates = vm.checkRuleUpdates()
+                                val result = vm.checkRuleUpdates()
                                 checkingUpdates = false
+                                // Like the app update check: no dialog when nothing to update, bottom Toast only
+                                val available = result.filter { it.error == null && it.newVersion.isNotBlank() }
+                                when {
+                                    available.isNotEmpty() -> updates = result
+                                    result.any { it.error != null } -> toast("检查失败，请稍后再试")
+                                    else -> toast("所有规则都是最新")
+                                }
                             }
                         }
                     },
@@ -256,11 +263,24 @@ fun ManageTab(vm: SearchViewModel) {
         UpdateDialog(
             updates = list,
             onDismiss = { updates = null },
-            onApply = { u ->
+            onApplyAll = {
                 scope.launch {
-                    val ok = vm.applyRuleUpdate(u.name, u.newYaml)
-                    toast(if (ok) "已更新：${u.name}" else "更新失败：${u.name}")
-                    if (ok) updates = updates?.filter { it.name != u.name }
+                    var added = 0
+                    var updated = 0
+                    var failed = 0
+                    list.filter { it.error == null && it.newVersion.isNotBlank() }.forEach { u ->
+                        if (vm.applyRuleUpdate(u.name, u.newYaml, u.file)) {
+                            if (u.isNew) added++ else updated++
+                        } else {
+                            failed++
+                        }
+                    }
+                    updates = null
+                    val parts = mutableListOf<String>()
+                    if (added > 0) parts += "已添加 $added 条"
+                    if (updated > 0) parts += "已更新 $updated 条"
+                    if (failed > 0) parts += "$failed 条失败"
+                    toast(parts.joinToString("，"))
                 }
             },
         )
@@ -562,66 +582,93 @@ private fun RuleTestDialog(rule: RuleUi, vm: SearchViewModel, onDismiss: () -> U
     }
 }
 
-/** 规则更新检查结果弹窗。 */
+/** 规则更新检查结果弹窗，沿用软件检查更新的弹窗样式。 */
 @Composable
 private fun UpdateDialog(
     updates: List<RuleUpdate>,
     onDismiss: () -> Unit,
-    onApply: (RuleUpdate) -> Unit,
+    onApplyAll: () -> Unit,
 ) {
-    Dialog(
-        onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false),
-    ) {
-        Card(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 28.dp),
-            insideMargin = PaddingValues(20.dp),
+    Dialog(onDismissRequest = onDismiss) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)
+                .clip(RoundedCornerShape(16.dp))
+                .background(cardBackground())
+                .padding(20.dp),
         ) {
             Text(
                 text = "规则更新",
-                fontWeight = FontWeight.Medium,
-                fontSize = 16.sp,
+                fontSize = 17.sp,
+                fontWeight = FontWeight.ExtraBold,
             )
             val available = updates.filter { it.error == null && it.newVersion.isNotBlank() }
             val failed = updates.filter { it.error != null }
-            if (available.isEmpty() && failed.isEmpty()) {
-                Text(
-                    text = "所有规则都是最新",
-                    fontSize = 14.sp,
-                    color = MiuixTheme.colorScheme.secondary,
-                    modifier = Modifier.padding(top = 12.dp),
-                )
-            }
-            available.forEach { u ->
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
+            if (available.isNotEmpty()) {
+                Column(
+                    modifier = Modifier.fillMaxWidth().heightIn(max = 320.dp)
+                        .verticalScroll(rememberScrollState()),
                 ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(text = u.name, fontSize = 15.sp, fontWeight = FontWeight.Medium)
-                        Text(
-                            text = "${u.currentVersion.ifBlank { "?" }} → ${u.newVersion}",
-                            fontSize = 13.sp,
-                            color = MiuixTheme.colorScheme.secondary,
-                        )
+                    available.forEach { u ->
+                        Column(modifier = Modifier.fillMaxWidth().padding(top = 12.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(text = u.name, fontSize = 15.sp, fontWeight = FontWeight.Medium)
+                                if (u.isNew) {
+                                    Text(
+                                        text = "新增",
+                                        fontSize = 11.sp,
+                                        color = MiuixTheme.colorScheme.primary,
+                                        modifier = Modifier.padding(start = 6.dp),
+                                    )
+                                }
+                            }
+                            Text(
+                                text = if (u.isNew) {
+                                    "新规则 · v${u.newVersion}"
+                                } else {
+                                    "${u.currentVersion.ifBlank { "?" }} → ${u.newVersion}"
+                                },
+                                fontSize = 13.sp,
+                                color = MiuixTheme.colorScheme.secondary,
+                            )
+                        }
                     }
-                    TextButton(text = "更新", onClick = { onApply(u) })
                 }
             }
             failed.forEach { u ->
                 Text(
                     text = "${u.name}：${u.error}",
                     fontSize = 13.sp,
-                    color = MiuixTheme.colorScheme.error,
-                    modifier = Modifier.padding(top = 8.dp),
+                    color = MiuixTheme.colorScheme.secondary,
+                    modifier = Modifier.padding(top = 12.dp),
                 )
             }
-            Button(
-                onClick = onDismiss,
-                modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
+            Spacer(modifier = Modifier.height(20.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                Text("关闭")
+                if (available.isNotEmpty()) {
+                    Box(
+                        modifier = Modifier.weight(1f)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(MiuixTheme.colorScheme.primary)
+                            .clickable { onApplyAll() }
+                            .padding(vertical = 12.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(text = "全部更新", color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+                Box(
+                    modifier = Modifier.weight(1f)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(MiuixTheme.colorScheme.outline)
+                        .clickable { onDismiss() }
+                        .padding(vertical = 12.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(text = "关闭", fontSize = 15.sp)
+                }
             }
         }
     }
