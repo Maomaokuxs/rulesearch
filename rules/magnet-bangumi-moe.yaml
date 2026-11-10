@@ -1,0 +1,19 @@
+name: "萌番组"
+type: magnet
+enabled: true
+version: 1
+update_url: "https://raw.githubusercontent.com/Maomaokuxs/rulesearch/main/rules/magnet-bangumi-moe.yaml"
+
+request:
+  url: "https://bangumi.moe/api/v2/torrent/search?query={keyword}"
+  method: GET
+  timeout: 20
+
+# 萌番组 JSON API，用 Python 钩子解析（见 hooks/bangumi_moe.py）
+hook: "bangumi_moe:parse"
+
+parse:
+  list: "body"
+  fields:
+    title: {attr: text}
+    url: {attr: text}

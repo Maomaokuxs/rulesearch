@@ -35,6 +35,17 @@ parse:
 - `parse.fields` 的每个字段：`select` 是相对 `list` 容器的 CSS 选择器（省略则直接用容器本身），`attr: text` 取文本内容，其他如 `href`/`src` 取对应属性。找不到的字段返回空字符串，不报错。
 - 单条结果解析失败会被跳过，不影响整页；整条规则请求失败会记入 `errors`，不影响其他规则。
 
+## 规则更新（清单）
+
+`rules/manifest.json` 是规则清单，App 检查更新时先拉这一个文件，再按需下载
+变了的条目：清单里有、本地没有的是新规则，清单里 `version` 比本地新的是更新，
+清单里没有、本地有的不动。
+
+- 改规则后必须升 `version`（如 1 → 2），否则 App 认为无更新。
+- 改完规则跑一遍 `python3 gen_manifest.py`（仓库根目录）重新生成清单再提交；
+  CI 可用 `python3 gen_manifest.py --check` 校验清单是否最新。
+- 清单里的 `update_url` 指向 GitHub raw 上的对应 yaml，App 直接从那里下载。
+
 ## 调试
 
 ```bash
