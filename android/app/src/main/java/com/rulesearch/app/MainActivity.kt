@@ -1,4 +1,4 @@
-package dev.rulesearch.app
+package com.rulesearch.app
 
 import android.content.ClipboardManager
 import android.content.Context
@@ -13,9 +13,9 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.chaquo.python.Python
 import com.chaquo.python.android.AndroidPlatform
-import dev.rulesearch.app.ui.AppRoot
-import dev.rulesearch.app.ui.LocalIsDark
-import dev.rulesearch.app.ui.isDarkTheme
+import com.rulesearch.app.ui.AppRoot
+import com.rulesearch.app.ui.LocalIsDark
+import com.rulesearch.app.ui.isDarkTheme
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.theme.darkColorScheme
 import top.yukonga.miuix.kmp.theme.lightColorScheme

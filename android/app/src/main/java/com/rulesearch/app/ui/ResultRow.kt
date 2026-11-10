@@ -1,4 +1,4 @@
-package dev.rulesearch.app.ui
+package com.rulesearch.app.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
@@ -28,8 +28,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import dev.rulesearch.app.SearchResultUi
-import dev.rulesearch.app.panBrandOf
+import com.rulesearch.app.SearchResultUi
+import com.rulesearch.app.panBrandOf
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /** 标题里的关键词高亮：命中部分浅蓝底 + 深蓝字，其余不动。 */

@@ -1,4 +1,4 @@
-package dev.rulesearch.app.ui
+package com.rulesearch.app.ui
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
@@ -33,9 +33,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
-import dev.rulesearch.app.FootprintUi
-import dev.rulesearch.app.SearchResultUi
-import dev.rulesearch.app.SearchViewModel
+import com.rulesearch.app.FootprintUi
+import com.rulesearch.app.SearchResultUi
+import com.rulesearch.app.SearchViewModel
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.theme.MiuixTheme

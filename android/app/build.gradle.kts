@@ -7,7 +7,7 @@ plugins {
 }
 
 android {
-    namespace = "dev.rulesearch.app"
+    namespace = "com.rulesearch.app"
     // Miuix v0.9.4 要求 compileSdk 37+（AAR metadata 校验）；API 37 的 platform 目录叫 android-37.0，
     // 故用 release/minorApiLevel 写法
     compileSdk {
@@ -17,7 +17,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "dev.rulesearch.app"
+        applicationId = "com.rulesearch.app"
         minSdk = 26 // Chaquopy 17 要求 minSdk >= 24；26 起可用自适应图标
         targetSdk = 37
         versionCode = 2

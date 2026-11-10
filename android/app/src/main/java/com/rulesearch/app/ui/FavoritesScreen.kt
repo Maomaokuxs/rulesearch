@@ -1,4 +1,4 @@
-package dev.rulesearch.app.ui
+package com.rulesearch.app.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -28,9 +28,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import dev.rulesearch.app.FavoriteUi
-import dev.rulesearch.app.SearchResultUi
-import dev.rulesearch.app.SearchViewModel
+import com.rulesearch.app.FavoriteUi
+import com.rulesearch.app.SearchResultUi
+import com.rulesearch.app.SearchViewModel
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 

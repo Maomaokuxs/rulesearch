@@ -1,4 +1,4 @@
-package dev.rulesearch.app.ui
+package com.rulesearch.app.ui
 
 import android.content.Intent
 import android.widget.Toast
@@ -45,11 +45,11 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import dev.rulesearch.app.LinkStatus
-import dev.rulesearch.app.LinkTypes
-import dev.rulesearch.app.SearchResultUi
-import dev.rulesearch.app.SearchViewModel
-import dev.rulesearch.app.checkLink
+import com.rulesearch.app.LinkStatus
+import com.rulesearch.app.LinkTypes
+import com.rulesearch.app.SearchResultUi
+import com.rulesearch.app.SearchViewModel
+import com.rulesearch.app.checkLink
 import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.theme.MiuixTheme

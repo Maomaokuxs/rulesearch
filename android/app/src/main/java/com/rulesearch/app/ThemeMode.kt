@@ -1,4 +1,4 @@
-package dev.rulesearch.app
+package com.rulesearch.app
 
 /** 外观模式：跟随系统 / 浅色 / 深色（SharedPreferences "rulesearch" 的 theme_mode 键）。 */
 enum class ThemeMode(val key: String, val label: String) {

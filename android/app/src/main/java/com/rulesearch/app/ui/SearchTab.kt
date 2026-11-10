@@ -1,4 +1,4 @@
-package dev.rulesearch.app.ui
+package com.rulesearch.app.ui
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
@@ -15,8 +15,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import dev.rulesearch.app.SearchResultUi
-import dev.rulesearch.app.SearchViewModel
+import com.rulesearch.app.SearchResultUi
+import com.rulesearch.app.SearchViewModel
 
 private enum class SearchTabScreen { HOME, SEARCH, RESULTS }
 

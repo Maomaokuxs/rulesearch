@@ -1,8 +1,8 @@
-package dev.rulesearch.app.ui
+package com.rulesearch.app.ui
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
-import dev.rulesearch.app.PAN_BRAND_DEFS
+import com.rulesearch.app.PAN_BRAND_DEFS
 
 /** 网盘品牌色：结果行里那个 8dp 小圆点的颜色，一眼认品牌。 */
 val BRAND_COLORS: Map<String, Color> = mapOf(

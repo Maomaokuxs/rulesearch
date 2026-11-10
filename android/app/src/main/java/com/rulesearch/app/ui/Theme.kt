@@ -1,10 +1,10 @@
-package dev.rulesearch.app.ui
+package com.rulesearch.app.ui
 
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.compositionLocalOf
-import dev.rulesearch.app.SearchViewModel
-import dev.rulesearch.app.ThemeMode
+import com.rulesearch.app.SearchViewModel
+import com.rulesearch.app.ThemeMode
 
 /**
  * 当前是否深色：由 MainActivity 在根部按外观模式算好后提供，整 App 共用。

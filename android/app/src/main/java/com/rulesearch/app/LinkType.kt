@@ -1,4 +1,4 @@
-package dev.rulesearch.app
+package com.rulesearch.app
 
 /** 链接类型：网盘 / 磁力 / 未知，用于跳转规则区分和弹窗展示。 */
 data class LinkType(val id: String, val label: String)

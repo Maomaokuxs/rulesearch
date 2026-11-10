@@ -1,4 +1,4 @@
-package dev.rulesearch.app.ui
+package com.rulesearch.app.ui
 
 import android.content.Context
 import android.content.Intent
@@ -44,12 +44,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import dev.rulesearch.app.ImportResult
-import dev.rulesearch.app.RuleHealth
-import dev.rulesearch.app.RuleTestResult
-import dev.rulesearch.app.RuleUi
-import dev.rulesearch.app.RuleUpdate
-import dev.rulesearch.app.SearchViewModel
+import com.rulesearch.app.ImportResult
+import com.rulesearch.app.RuleHealth
+import com.rulesearch.app.RuleTestResult
+import com.rulesearch.app.RuleUi
+import com.rulesearch.app.RuleUpdate
+import com.rulesearch.app.SearchViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext

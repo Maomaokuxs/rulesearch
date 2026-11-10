@@ -1,4 +1,4 @@
-package dev.rulesearch.app
+package com.rulesearch.app
 
 import android.app.Application
 import android.content.Context

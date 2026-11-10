@@ -1,4 +1,4 @@
-package dev.rulesearch.app.ui
+package com.rulesearch.app.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -25,11 +25,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import dev.rulesearch.app.PAN_BRAND_DEFS
-import dev.rulesearch.app.SearchViewModel
-import dev.rulesearch.app.SortMode
-import dev.rulesearch.app.SizeFilter
-import dev.rulesearch.app.TimeFilter
+import com.rulesearch.app.PAN_BRAND_DEFS
+import com.rulesearch.app.SearchViewModel
+import com.rulesearch.app.SortMode
+import com.rulesearch.app.SizeFilter
+import com.rulesearch.app.TimeFilter
 import top.yukonga.miuix.kmp.basic.Switch
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.theme.MiuixTheme

@@ -1,4 +1,4 @@
-package dev.rulesearch.app.ui
+package com.rulesearch.app.ui
 
 import android.content.Intent
 import androidx.activity.compose.BackHandler
@@ -44,12 +44,12 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.core.net.toUri
 import androidx.core.graphics.drawable.toBitmap
-import dev.rulesearch.app.SearchViewModel
-import dev.rulesearch.app.ThemeMode
+import com.rulesearch.app.SearchViewModel
+import com.rulesearch.app.ThemeMode
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextAlign
-import dev.rulesearch.app.BuildConfig
-import dev.rulesearch.app.R
+import com.rulesearch.app.BuildConfig
+import com.rulesearch.app.R
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.theme.MiuixTheme
@@ -404,7 +404,7 @@ private fun AboutPage(vm: SearchViewModel, onLicense: () -> Unit, onBack: () -> 
             MineMenuRow(
                 title = "检查更新",
                 trailing = {
-                    if (vm.updateState is dev.rulesearch.app.UpdateState.Checking) {
+                    if (vm.updateState is com.rulesearch.app.UpdateState.Checking) {
                         Text(
                             text = "检查中…",
                             fontSize = 14.sp,
@@ -451,7 +451,7 @@ private fun AboutPage(vm: SearchViewModel, onLicense: () -> Unit, onBack: () -> 
     // 检查更新：有更新弹窗 / 已是最新 / 失败 Toast
     val updateState = vm.updateState
     when (updateState) {
-        is dev.rulesearch.app.UpdateState.Available -> {
+        is com.rulesearch.app.UpdateState.Available -> {
             Dialog(onDismissRequest = { vm.resetUpdateState() }) {
                 Column(
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)
@@ -506,13 +506,13 @@ private fun AboutPage(vm: SearchViewModel, onLicense: () -> Unit, onBack: () -> 
                 }
             }
         }
-        is dev.rulesearch.app.UpdateState.UpToDate -> {
+        is com.rulesearch.app.UpdateState.UpToDate -> {
             androidx.compose.runtime.LaunchedEffect(Unit) {
                 android.widget.Toast.makeText(context, "已是最新版本", android.widget.Toast.LENGTH_SHORT).show()
                 vm.resetUpdateState()
             }
         }
-        is dev.rulesearch.app.UpdateState.Error -> {
+        is com.rulesearch.app.UpdateState.Error -> {
             androidx.compose.runtime.LaunchedEffect(Unit) {
                 android.widget.Toast.makeText(context, "检查失败，请稍后再试", android.widget.Toast.LENGTH_SHORT).show()
                 vm.resetUpdateState()
