@@ -20,8 +20,8 @@ android {
         applicationId = "dev.rulesearch.app"
         minSdk = 26 // Chaquopy 17 要求 minSdk >= 24；26 起可用自适应图标
         targetSdk = 37
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = 2
+        versionName = "0.1.1"
 
         ndk {
             // Python 3.13 只支持 arm64-v8a / x86_64；真机只留 arm64 构建最快
@@ -47,6 +47,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 
