@@ -113,13 +113,15 @@ data class RuleHealth(
     val error: String? = null,
 )
 
-/** 规则更新信息。 */
+/** 规则更新信息。isNew = 清单里有、本地没有的新规则。 */
 data class RuleUpdate(
     val name: String,
     val currentVersion: String = "",
     val newVersion: String = "",
     val newYaml: String = "",
     val error: String? = null,
+    val isNew: Boolean = false,
+    val file: String = "",
 )
 
 /** 规则导入结果。 */
@@ -243,9 +245,26 @@ fun compareVersions(current: String, latest: String): Int {
     return 0
 }
 
+/** 关联性打分：标题与关键词越相关分越高（只用于默认排序）。 */
+fun relevanceScore(title: String, keyword: String): Int {
+    val t = title.lowercase(Locale.ROOT)
+    val kw = keyword.trim().lowercase(Locale.ROOT)
+    if (kw.isEmpty()) return 0
+    var score = 0
+    if (t == kw) score += 200 // 标题就是关键词
+    if (t.contains(kw)) score += 100 // 含完整关键词
+    // 关键词带空格/分隔符时，标题常连写（如搜"哈利 波特"命中"哈利波特"）
+    val kwCompact = kw.replace(" ", "").replace(",", "").replace("\uFF0C", "").replace("\u3001", "")
+    if (kwCompact != kw && t.contains(kwCompact)) score += 100
+    val tokens = kw.split(" ", ",", "\uFF0C", "\u3001").filter { it.isNotEmpty() }
+    var matched = 0
+    for (tok in tokens) if (t.contains(tok)) matched++
+    score += matched * 10 // 命中词越多分越高
+    if (tokens.isNotEmpty() && t.startsWith(tokens[0])) score += 5
+    return score
+}
+
 class SearchViewModel(app: Application) : AndroidViewModel(app) {
-    // 搜索框 FLIP 动画是否已播过（切 tab 不重播）
-    var flipPlayedForKeyword: String? = null
     private val prefs = app.getSharedPreferences("rulesearch", Context.MODE_PRIVATE)
 
     var keyword by mutableStateOf("")
@@ -284,6 +303,9 @@ class SearchViewModel(app: Application) : AndroidViewModel(app) {
     /** 只显示可访问的链接（筛选框选项，开启后自动检测；持久化，重启仍保持） */
     var onlyReachable by mutableStateOf(prefs.getBoolean("only_reachable", false))
         private set
+    /** 外观模式（跟随系统/浅色/深色，持久化，重启仍保持） */
+    var themeMode by mutableStateOf(ThemeMode.fromKey(prefs.getString(KEY_THEME_MODE, null)))
+        private set
     /** 被筛掉的网盘品牌（在筛选框里取消勾选的） */
     var hiddenPanBrands by mutableStateOf<Set<String>>(emptySet())
         private set
@@ -320,50 +342,93 @@ class SearchViewModel(app: Application) : AndroidViewModel(app) {
     var updateState by mutableStateOf<UpdateState>(UpdateState.Idle)
         private set
 
-    /** 检查 GitHub 最新 Release，与当前版本比较 */
+    /** Check GitHub latest release and compare with current version.
+     *  API first; on non-200 (e.g. 403 rate limit) fall back to the web page
+     *  /releases/latest and take the tag from the 302 Location header.
+     *  404 means no release yet -> treated as up to date. No token is used. */
     fun checkForUpdate() {
         if (updateState is UpdateState.Checking) return
         updateState = UpdateState.Checking
         viewModelScope.launch(Dispatchers.IO) {
-            try {
-                val conn = URL("https://api.github.com/repos/Maomaokuxs/rulesearch/releases/latest").openConnection() as HttpURLConnection
-                conn.requestMethod = "GET"
-                conn.connectTimeout = 10000
-                conn.readTimeout = 10000
-                conn.setRequestProperty("Accept", "application/vnd.github+json")
-                conn.setRequestProperty("User-Agent", "RuleSearch")
-                val code = conn.responseCode
-                if (code != 200) {
-                    conn.disconnect()
-                    withContext(Dispatchers.Main) { updateState = UpdateState.Error }
-                    return@launch
-                }
+            val result = try {
+                fetchLatestRelease()
+            } catch (e: Exception) {
+                UpdateState.Error
+            }
+            withContext(Dispatchers.Main) { updateState = result }
+        }
+    }
+
+    /** API first, web fallback. Runs on IO dispatcher. */
+    private fun fetchLatestRelease(): UpdateState {
+        val current = currentVersionName()
+        // 1. GitHub API
+        try {
+            val conn = URL("https://api.github.com/repos/Maomaokuxs/rulesearch/releases/latest").openConnection() as HttpURLConnection
+            conn.requestMethod = "GET"
+            conn.connectTimeout = 10000
+            conn.readTimeout = 10000
+            conn.setRequestProperty("Accept", "application/vnd.github+json")
+            conn.setRequestProperty("User-Agent", "RuleSearch")
+            val code = conn.responseCode
+            if (code == 404) {
+                conn.disconnect()
+                return UpdateState.UpToDate
+            }
+            if (code == 200) {
                 val body = conn.inputStream.bufferedReader().readText()
                 conn.disconnect()
                 val json = JSONObject(body)
                 val tagName = json.optString("tag_name", "")
                 val htmlUrl = json.optString("html_url", "https://github.com/Maomaokuxs/rulesearch/releases")
                 val notes = json.optString("body", "")
-                val current = try {
-                    val info = getApplication<Application>().packageManager.getPackageInfo(
-                        getApplication<Application>().packageName, 0
-                    )
-                    @Suppress("DEPRECATION")
-                    info.versionName ?: "0.0.0"
-                } catch (e: Exception) { "0.0.0" }
-                val result: UpdateState = if (tagName.isBlank()) {
-                    UpdateState.Error
-                } else if (compareVersions(current, tagName) > 0) {
-                    UpdateState.Available(tagName, htmlUrl, notes)
-                } else {
-                    UpdateState.UpToDate
-                }
-                withContext(Dispatchers.Main) { updateState = result }
-            } catch (e: Exception) {
-                withContext(Dispatchers.Main) { updateState = UpdateState.Error }
+                if (tagName.isBlank()) return UpdateState.Error
+                return compareWithCurrent(current, tagName, htmlUrl, notes)
             }
+            conn.disconnect()
+            // Non-200 non-404 (e.g. 403 rate limit): fall through to web fallback
+        } catch (e: Exception) {
+            // Network error: try the web fallback below
+        }
+        // 2. Web fallback: /releases/latest without following redirects,
+        // take the tag from the 302 Location header (e.g. .../releases/tag/v0.1.0)
+        return try {
+            val conn = URL("https://github.com/Maomaokuxs/rulesearch/releases/latest").openConnection() as HttpURLConnection
+            conn.instanceFollowRedirects = false
+            conn.requestMethod = "GET"
+            conn.connectTimeout = 10000
+            conn.readTimeout = 10000
+            conn.setRequestProperty("User-Agent", "RuleSearch")
+            val code = conn.responseCode
+            val location = conn.getHeaderField("Location") ?: ""
+            conn.disconnect()
+            if (code !in 300..399 || location.isBlank()) return UpdateState.Error
+            val tagName = location.substringAfterLast("/tag/", "").trim()
+            if (tagName.isBlank()) return UpdateState.Error
+            compareWithCurrent(current, tagName, location, "")
+        } catch (e: Exception) {
+            UpdateState.Error
         }
     }
+
+    private fun compareWithCurrent(current: String, tagName: String, htmlUrl: String, notes: String): UpdateState {
+        return if (compareVersions(current, tagName) > 0) {
+            UpdateState.Available(tagName, htmlUrl, notes)
+        } else {
+            UpdateState.UpToDate
+        }
+    }
+
+    private fun currentVersionName(): String {
+        return try {
+            val info = getApplication<Application>().packageManager.getPackageInfo(
+                getApplication<Application>().packageName, 0
+            )
+            @Suppress("DEPRECATION")
+            info.versionName ?: "0.0.0"
+        } catch (e: Exception) { "0.0.0" }
+    }
+
 
     /** 重置更新状态（弹窗关闭后调用） */
     fun resetUpdateState() {
@@ -909,7 +974,7 @@ class SearchViewModel(app: Application) : AndroidViewModel(app) {
             .toString()
     }
 
-    /** 检查带 update_url 的规则是否有新版。 */
+    /** 检查规则更新：先拉 rules/manifest.json，发现新规则与新版本。 */
     suspend fun checkRuleUpdates(): List<RuleUpdate> = withContext(Dispatchers.IO) {
         val arr = JSONArray(
             Python.getInstance()
@@ -925,16 +990,18 @@ class SearchViewModel(app: Application) : AndroidViewModel(app) {
                 newVersion = o.optString("new_version"),
                 newYaml = o.optString("new_yaml"),
                 error = if (o.isNull("error")) null else o.optString("error").ifEmpty { null },
+                isNew = o.optBoolean("is_new", false),
+                file = o.optString("file"),
             )
         }
     }
 
-    /** 写入新版规则并重载。 */
-    suspend fun applyRuleUpdate(name: String, newYaml: String): Boolean =
+    /** 写入新版规则并重载；新规则用 file 指明写入内置规则目录的文件名。 */
+    suspend fun applyRuleUpdate(name: String, newYaml: String, file: String = ""): Boolean =
         withContext(Dispatchers.IO) {
             val ok = Python.getInstance()
                 .getModule("engine_bridge")
-                .callAttr("apply_rule_update", name, newYaml)
+                .callAttr("apply_rule_update", name, newYaml, file)
                 .toString().toBoolean()
             if (ok) loadRules()
             ok
@@ -978,6 +1045,13 @@ class SearchViewModel(app: Application) : AndroidViewModel(app) {
         if (v && linkStatus.isEmpty() && !checkingLinks) {
             checkAllLinks()
         }
+    }
+
+    /** 切换外观模式：themeMode 是 State，读它的组合会重组，整 App 立即变色。 */
+    // 注意：不能叫 setThemeMode——属性 themeMode 的 JVM setter 就叫这个，会平台声明冲突。
+    fun setTheme(mode: ThemeMode) {
+        themeMode = mode
+        prefs.edit().putString(KEY_THEME_MODE, mode.key).apply()
     }
 
     /** 筛选框里切换网盘品牌的勾选 */
@@ -1026,7 +1100,11 @@ class SearchViewModel(app: Application) : AndroidViewModel(app) {
                 }
             }
         when (sortMode) {
-            SortMode.DEFAULT -> list
+            SortMode.DEFAULT -> {
+                val kw = keyword.trim()
+                if (kw.isEmpty()) list
+                else list.sortedByDescending { relevanceScore(it.title, kw) }
+            }
             SortMode.SIZE_DESC ->
                 list.sortedByDescending { parseSizeBytes(it.size) ?: Long.MIN_VALUE }
             SortMode.SIZE_ASC ->
@@ -1043,5 +1121,6 @@ class SearchViewModel(app: Application) : AndroidViewModel(app) {
         private const val KEY_FAVORITES = "favorites"
         private const val KEY_FOOTPRINTS = "footprints"
         private const val KEY_TOTAL_FILTERED = "total_filtered"
+        private const val KEY_THEME_MODE = "theme_mode"
     }
 }
