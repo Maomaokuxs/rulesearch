@@ -6,13 +6,16 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.chaquo.python.Python
 import com.chaquo.python.android.AndroidPlatform
 import dev.rulesearch.app.ui.AppRoot
+import dev.rulesearch.app.ui.LocalIsDark
+import dev.rulesearch.app.ui.isDarkTheme
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.theme.darkColorScheme
 import top.yukonga.miuix.kmp.theme.lightColorScheme
@@ -29,8 +32,13 @@ class MainActivity : ComponentActivity() {
         }
         enableEdgeToEdge()
         setContent {
+            // 外观模式存在 ViewModel 里（State）：切换后读它的组合全部重组，立即变色；
+            // 同一个 ViewModel 实例传给 AppRoot，避免建两份。
+            val vm: SearchViewModel = viewModel()
+            val dark = isDarkTheme(vm)
+            CompositionLocalProvider(LocalIsDark provides dark) {
             MiuixTheme(
-                colors = if (isSystemInDarkTheme()) darkColorScheme(
+                colors = if (dark) darkColorScheme(
                     primary = androidx.compose.ui.graphics.Color(0xFF2F7CF6),
                     // secondary #505050 在黑底上对比度不足，提亮到 #9A9A9A 保可读
                     secondary = androidx.compose.ui.graphics.Color(0xFF9A9A9A),
@@ -41,6 +49,7 @@ class MainActivity : ComponentActivity() {
                 )
             ) {
                 AppRoot(
+                    vm = vm,
                     // Deep link 进来（如 rulesearch://search?keyword=三体）直接开搜
                     initialKeyword = intent?.data?.getQueryParameter("keyword"),
                     // 调试用：搜出结果后自动弹出第一条的详情弹窗
@@ -48,6 +57,7 @@ class MainActivity : ComponentActivity() {
                     clipboardLink = clipboardLink,
                     onClipboardConsumed = { clipboardLink = null },
                 )
+            }
             }
         }
     }

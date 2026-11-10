@@ -1,6 +1,5 @@
 package dev.rulesearch.app.ui
 
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import dev.rulesearch.app.PAN_BRAND_DEFS
@@ -36,12 +35,12 @@ val COLOR_SWITCH_OFF = Color(0xFFE3E3E8)
 
 /** 深浅自适应灰（用户 mock 调定深色值 #3f3f3f）：历史胶囊、分段容器、未选中 chip、多选圈、骨架屏 */
 @Composable
-fun cardGray(): Color = if (isSystemInDarkTheme()) Color(0xFF3F3F3F) else Color(0xFFF2F3F5)
+fun cardGray(): Color = if (LocalIsDark.current) Color(0xFF3F3F3F) else Color(0xFFF2F3F5)
 
 /** 页面背景：深色纯黑 / 浅色浅灰（浅色下与白色导航栏区分） */
 @Composable
-fun pageBackground(): Color = if (isSystemInDarkTheme()) Color.Black else Color(0xFFF2F3F5)
+fun pageBackground(): Color = if (LocalIsDark.current) Color.Black else Color(0xFFF2F3F5)
 
 /** 卡片背景：深色 #3f3f3f / 浅色白 */
 @Composable
-fun cardBackground(): Color = if (isSystemInDarkTheme()) Color(0xFF3F3F3F) else Color.White
+fun cardBackground(): Color = if (LocalIsDark.current) Color(0xFF3F3F3F) else Color.White

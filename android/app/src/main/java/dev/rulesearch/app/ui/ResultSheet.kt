@@ -4,7 +4,6 @@ import android.content.Intent
 import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -134,7 +133,7 @@ fun ResultSheet(
     val keyword = vm?.keyword?.trim().orEmpty()
     val titleAnnotated = highlightedTitle(result.title, keyword)
     val isReachable = status == LinkStatus.Reachable && !checking && !isMagnet
-    val secondaryBtnBg = if (isSystemInDarkTheme()) Color(0xFF5A5A5A) else Color(0xFFE9E9EB)
+    val secondaryBtnBg = if (LocalIsDark.current) Color(0xFF5A5A5A) else Color(0xFFE9E9EB)
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,

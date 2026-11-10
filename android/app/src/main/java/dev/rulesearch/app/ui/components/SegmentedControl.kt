@@ -2,7 +2,6 @@ package dev.rulesearch.app.ui
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -54,7 +53,7 @@ internal fun SegmentedControl(
     onSelect: (Int) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val dark = isSystemInDarkTheme()
+    val dark = LocalIsDark.current
     // 深色：选中项比卡片 #3f3f3f 亮一档；浅色：白底黑字
     val selectedBg = if (dark) Color(0xFF5A5A5A) else Color.White
     val selectedText = if (dark) Color.White else Color.Black
