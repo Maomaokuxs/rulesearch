@@ -19,6 +19,12 @@ from engine.loader import load_rules, validate
 from engine.runner import run_rule, search_all
 
 _RULES_DIR = os.path.join(_HERE, "rules")
+# 规则清单：App 检查更新先拉这一个文件，再按需下载变了的条目。
+# 由仓库根的 gen_manifest.py 从 rules/*.yaml 生成。
+_MANIFEST_URL = (
+    "https://raw.githubusercontent.com/Maomaokuxs/rulesearch"
+    "/master/rules/manifest.json"
+)
 _user_rules_dir = None
 _rules_cache = None
 
@@ -210,34 +216,116 @@ def get_rule_yaml(name):
         return ""
 
 
+def _fetch_rule_yaml(url):
+    """下载并校验一条规则，返回 (name, version, yaml_text)。"""
+    resp = new_session().get(url, timeout=15)
+    resp.raise_for_status()
+    data = yaml.safe_load(resp.text)
+    rule = validate(data, "<update>")
+    return rule.name, str(data.get("version") or ""), resp.text
+
+
 def check_updates():
-    """对带 update_url 的规则检查新版本，返回 [{name, current_version,
-    new_version, new_yaml} | {name, error}]。"""
+    """先拉 rules/manifest.json 再按需下载，返回 [{name, current_version,
+    new_version, new_yaml, file, is_new} | {name, error}]。
+
+    清单里有、本地没有的是新规则；清单里 version 比本地新的是更新；
+    清单里没有、本地有的不动。清单拉不到时回落到旧的逐条 update_url 检查。
+    """
+    try:
+        resp = new_session().get(_MANIFEST_URL, timeout=15)
+        resp.raise_for_status()
+        manifest = json.loads(resp.text)
+        entries = manifest.get("rules") or []
+        if not isinstance(entries, list):
+            raise ValueError("manifest 格式不对：rules 不是列表")
+    except Exception:  # noqa: BLE001 —— 清单拉不到时回落旧逻辑
+        return _check_updates_legacy()
     out = []
+    failed = 0
+    local = {r.name: r for r in _rules()}
+    for entry in entries:
+        if not isinstance(entry, dict):
+            continue
+        name = entry.get("name") or ""
+        url = entry.get("update_url") or ""
+        filename = entry.get("file") or os.path.basename(url)
+        if not name or not url:
+            continue
+        # 先拿清单里的 version 比对，没变的不下载 yaml
+        manifest_ver = str(entry.get("version") or "")
+        if name in local:
+            current_ver = _rule_meta(local[name])["version"]
+            if manifest_ver and manifest_ver == current_ver:
+                continue
+        try:
+            remote_name, new_ver, new_yaml = _fetch_rule_yaml(url)
+            if remote_name != name:
+                failed += 1
+                continue
+            if name not in local:
+                out.append(
+                    {
+                        "name": name,
+                        "current_version": "",
+                        "new_version": new_ver,
+                        "new_yaml": new_yaml,
+                        "file": filename,
+                        "is_new": True,
+                    }
+                )
+            else:
+                current_ver = _rule_meta(local[name])["version"]
+                if new_ver and new_ver != current_ver:
+                    out.append(
+                        {
+                            "name": name,
+                            "current_version": current_ver,
+                            "new_version": new_ver,
+                            "new_yaml": new_yaml,
+                            "file": filename,
+                            "is_new": False,
+                        }
+                    )
+        except Exception:  # noqa: BLE001 —— 单条查不到就跳过
+            failed += 1
+    if failed:
+        out.append(
+            {"name": "部分规则", "error": f"{failed} 条暂时查不到更新，可稍后再试"}
+        )
+    return json.dumps(out, ensure_ascii=False)
+
+
+def _check_updates_legacy():
+    """旧逻辑：逐条按本地规则的 update_url 检查（清单拉不到时回落）。"""
+    out = []
+    failed = 0
     for r in _rules():
         meta = _rule_meta(r)
         url = meta["update_url"]
         if not url:
             continue
         try:
-            resp = new_session().get(url, timeout=15)
-            resp.raise_for_status()
-            data = yaml.safe_load(resp.text)
-            rule = validate(data, "<update>")
-            new_ver = str(data.get("version") or "")
-            if rule.name != r.name:
-                out.append({"name": r.name, "error": "远端规则名不一致，跳过"})
+            remote_name, new_ver, new_yaml = _fetch_rule_yaml(url)
+            if remote_name != r.name:
+                failed += 1
             elif new_ver and new_ver != meta["version"]:
                 out.append(
                     {
                         "name": r.name,
                         "current_version": meta["version"],
                         "new_version": new_ver,
-                        "new_yaml": resp.text,
+                        "new_yaml": new_yaml,
+                        "file": os.path.basename(r.path),
+                        "is_new": False,
                     }
                 )
-        except Exception as e:  # noqa: BLE001
-            out.append({"name": r.name, "error": f"{type(e).__name__}: {e}"})
+        except Exception:  # noqa: BLE001 —— 单条查不到就跳过
+            failed += 1
+    if failed:
+        out.append(
+            {"name": "部分规则", "error": f"{failed} 条暂时查不到更新，可稍后再试"}
+        )
     return json.dumps(out, ensure_ascii=False)
 
 
@@ -254,14 +342,25 @@ def delete_user_rule(name):
     return True
 
 
-def apply_rule_update(name, new_yaml):
-    """写入新版规则 YAML 并重载，返回是否成功。"""
+def apply_rule_update(name, new_yaml, filename=""):
+    """写入新版规则 YAML 并重载，返回是否成功。
+
+    本地已有同名规则时覆盖原文件；新规则写入内置规则目录
+    （_RULES_DIR/<filename>），文件名只取 basename 且限 .yaml/.yml。
+    """
     rule = next((r for r in _rules() if r.name == name), None)
-    if rule is None:
-        return False
     try:
-        validate(yaml.safe_load(new_yaml), "<update>")
-        with open(rule.path, "w", encoding="utf-8") as f:
+        validated = validate(yaml.safe_load(new_yaml), "<update>")
+        if validated.name != name:
+            return False
+        if rule is not None:
+            path = rule.path
+        else:
+            safe = os.path.basename(filename or "")
+            if not safe.endswith((".yaml", ".yml")):
+                return False
+            path = os.path.join(_RULES_DIR, safe)
+        with open(path, "w", encoding="utf-8") as f:
             f.write(new_yaml)
     except Exception:  # noqa: BLE001
         return False

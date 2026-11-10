@@ -28,7 +28,7 @@ RULES_DIR = os.path.join(ROOT, "rules")
 MANIFEST_PATH = os.path.join(RULES_DIR, "manifest.json")
 MANIFEST_URL = (
     "https://raw.githubusercontent.com/Maomaokuxs/rulesearch"
-    "/main/rules/manifest.json"
+    "/master/rules/manifest.json"
 )
 
 

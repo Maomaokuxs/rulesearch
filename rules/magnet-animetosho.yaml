@@ -2,7 +2,7 @@ name: "AnimeTosho"
 type: magnet
 enabled: true
 version: 1
-update_url: "https://raw.githubusercontent.com/Maomaokuxs/rulesearch/main/rules/magnet-animetosho.yaml"
+update_url: "https://raw.githubusercontent.com/Maomaokuxs/rulesearch/master/rules/magnet-animetosho.yaml"
 
 request:
   url: "https://feed.animetosho.org/rss2?q={keyword}"

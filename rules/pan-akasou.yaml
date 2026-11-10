@@ -2,7 +2,7 @@ name: "阿卡搜"
 type: pan
 enabled: true
 version: 1
-update_url: "https://raw.githubusercontent.com/Maomaokuxs/rulesearch/main/rules/pan-akasou.yaml"
+update_url: "https://raw.githubusercontent.com/Maomaokuxs/rulesearch/master/rules/pan-akasou.yaml"
 
 request:
   url: "https://www.vecom.top/search?q={keyword}"

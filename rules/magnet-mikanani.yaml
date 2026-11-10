@@ -2,7 +2,7 @@ name: "蜜柑计划"
 type: magnet
 enabled: true
 version: 1
-update_url: "https://raw.githubusercontent.com/Maomaokuxs/rulesearch/main/rules/magnet-mikanani.yaml"
+update_url: "https://raw.githubusercontent.com/Maomaokuxs/rulesearch/master/rules/magnet-mikanani.yaml"
 
 request:
   url: "https://mikanani.me/Home/Search?searchstr={keyword}"

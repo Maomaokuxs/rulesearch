@@ -2,7 +2,7 @@ name: "动漫花园"
 type: magnet
 enabled: true
 version: 1
-update_url: "https://raw.githubusercontent.com/Maomaokuxs/rulesearch/main/rules/magnet-dmhy.yaml"
+update_url: "https://raw.githubusercontent.com/Maomaokuxs/rulesearch/master/rules/magnet-dmhy.yaml"
 
 request:
   url: "https://share.dmhy.org/topics/list?keyword={keyword}"

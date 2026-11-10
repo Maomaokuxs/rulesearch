@@ -1,139 +1,139 @@
 {
   "version": 1,
   "updated_at": "2026-11-10",
-  "manifest_url": "https://raw.githubusercontent.com/Maomaokuxs/rulesearch/main/rules/manifest.json",
+  "manifest_url": "https://raw.githubusercontent.com/Maomaokuxs/rulesearch/master/rules/manifest.json",
   "rules": [
     {
       "name": "爱盼",
       "type": "magnet",
       "version": "1",
-      "update_url": "https://raw.githubusercontent.com/Maomaokuxs/rulesearch/main/rules/magnet-aipan.yaml",
+      "update_url": "https://raw.githubusercontent.com/Maomaokuxs/rulesearch/master/rules/magnet-aipan.yaml",
       "file": "magnet-aipan.yaml"
     },
     {
       "name": "AnimeTosho",
       "type": "magnet",
       "version": "1",
-      "update_url": "https://raw.githubusercontent.com/Maomaokuxs/rulesearch/main/rules/magnet-animetosho.yaml",
+      "update_url": "https://raw.githubusercontent.com/Maomaokuxs/rulesearch/master/rules/magnet-animetosho.yaml",
       "file": "magnet-animetosho.yaml"
     },
     {
       "name": "海盗湾磁力",
       "type": "magnet",
       "version": "1",
-      "update_url": "https://raw.githubusercontent.com/Maomaokuxs/rulesearch/main/rules/magnet-apibay.yaml",
+      "update_url": "https://raw.githubusercontent.com/Maomaokuxs/rulesearch/master/rules/magnet-apibay.yaml",
       "file": "magnet-apibay.yaml"
     },
     {
       "name": "Internet Archive",
       "type": "magnet",
       "version": "1",
-      "update_url": "https://raw.githubusercontent.com/Maomaokuxs/rulesearch/main/rules/magnet-archiveorg.yaml",
+      "update_url": "https://raw.githubusercontent.com/Maomaokuxs/rulesearch/master/rules/magnet-archiveorg.yaml",
       "file": "magnet-archiveorg.yaml"
     },
     {
       "name": "萌番组",
       "type": "magnet",
       "version": "1",
-      "update_url": "https://raw.githubusercontent.com/Maomaokuxs/rulesearch/main/rules/magnet-bangumi-moe.yaml",
+      "update_url": "https://raw.githubusercontent.com/Maomaokuxs/rulesearch/master/rules/magnet-bangumi-moe.yaml",
       "file": "magnet-bangumi-moe.yaml"
     },
     {
       "name": "BitSearch 磁力",
       "type": "magnet",
       "version": "1",
-      "update_url": "https://raw.githubusercontent.com/Maomaokuxs/rulesearch/main/rules/magnet-bitsearch.yaml",
+      "update_url": "https://raw.githubusercontent.com/Maomaokuxs/rulesearch/master/rules/magnet-bitsearch.yaml",
       "file": "magnet-bitsearch.yaml"
     },
     {
       "name": "动漫花园",
       "type": "magnet",
       "version": "1",
-      "update_url": "https://raw.githubusercontent.com/Maomaokuxs/rulesearch/main/rules/magnet-dmhy.yaml",
+      "update_url": "https://raw.githubusercontent.com/Maomaokuxs/rulesearch/master/rules/magnet-dmhy.yaml",
       "file": "magnet-dmhy.yaml"
     },
     {
       "name": "蜜柑计划",
       "type": "magnet",
       "version": "1",
-      "update_url": "https://raw.githubusercontent.com/Maomaokuxs/rulesearch/main/rules/magnet-mikanani.yaml",
+      "update_url": "https://raw.githubusercontent.com/Maomaokuxs/rulesearch/master/rules/magnet-mikanani.yaml",
       "file": "magnet-mikanani.yaml"
     },
     {
       "name": "Nyaa 磁力",
       "type": "magnet",
       "version": "1",
-      "update_url": "https://raw.githubusercontent.com/Maomaokuxs/rulesearch/main/rules/magnet-nyaa.yaml",
+      "update_url": "https://raw.githubusercontent.com/Maomaokuxs/rulesearch/master/rules/magnet-nyaa.yaml",
       "file": "magnet-nyaa.yaml"
     },
     {
       "name": "Sukebei 磁力",
       "type": "magnet",
       "version": "1",
-      "update_url": "https://raw.githubusercontent.com/Maomaokuxs/rulesearch/main/rules/magnet-sukebei.yaml",
+      "update_url": "https://raw.githubusercontent.com/Maomaokuxs/rulesearch/master/rules/magnet-sukebei.yaml",
       "file": "magnet-sukebei.yaml"
     },
     {
       "name": "哎哟喂啊",
       "type": "pan",
       "version": "1",
-      "update_url": "https://raw.githubusercontent.com/Maomaokuxs/rulesearch/main/rules/pan-aiyoweia.yaml",
+      "update_url": "https://raw.githubusercontent.com/Maomaokuxs/rulesearch/master/rules/pan-aiyoweia.yaml",
       "file": "pan-aiyoweia.yaml"
     },
     {
       "name": "阿卡搜",
       "type": "pan",
       "version": "1",
-      "update_url": "https://raw.githubusercontent.com/Maomaokuxs/rulesearch/main/rules/pan-akasou.yaml",
+      "update_url": "https://raw.githubusercontent.com/Maomaokuxs/rulesearch/master/rules/pan-akasou.yaml",
       "file": "pan-akasou.yaml"
     },
     {
       "name": "大盘搜",
       "type": "pan",
       "version": "1",
-      "update_url": "https://raw.githubusercontent.com/Maomaokuxs/rulesearch/main/rules/pan-dapanso.yaml",
+      "update_url": "https://raw.githubusercontent.com/Maomaokuxs/rulesearch/master/rules/pan-dapanso.yaml",
       "file": "pan-dapanso.yaml"
     },
     {
       "name": "懒盘搜索",
       "type": "pan",
       "version": "1",
-      "update_url": "https://raw.githubusercontent.com/Maomaokuxs/rulesearch/main/rules/pan-lzpanx.yaml",
+      "update_url": "https://raw.githubusercontent.com/Maomaokuxs/rulesearch/master/rules/pan-lzpanx.yaml",
       "file": "pan-lzpanx.yaml"
     },
     {
       "name": "NASPT",
       "type": "pan",
       "version": "1",
-      "update_url": "https://raw.githubusercontent.com/Maomaokuxs/rulesearch/main/rules/pan-naspt.yaml",
+      "update_url": "https://raw.githubusercontent.com/Maomaokuxs/rulesearch/master/rules/pan-naspt.yaml",
       "file": "pan-naspt.yaml"
     },
     {
       "name": "盘搜搜",
       "type": "pan",
       "version": "1",
-      "update_url": "https://raw.githubusercontent.com/Maomaokuxs/rulesearch/main/rules/pan-pansoso.yaml",
+      "update_url": "https://raw.githubusercontent.com/Maomaokuxs/rulesearch/master/rules/pan-pansoso.yaml",
       "file": "pan-pansoso.yaml"
     },
     {
       "name": "PanSou",
       "type": "pan",
       "version": "1",
-      "update_url": "https://raw.githubusercontent.com/Maomaokuxs/rulesearch/main/rules/pan-pansou.yaml",
+      "update_url": "https://raw.githubusercontent.com/Maomaokuxs/rulesearch/master/rules/pan-pansou.yaml",
       "file": "pan-pansou.yaml"
     },
     {
       "name": "PanSou备用站",
       "type": "pan",
       "version": "1",
-      "update_url": "https://raw.githubusercontent.com/Maomaokuxs/rulesearch/main/rules/pan-pansoubk.yaml",
+      "update_url": "https://raw.githubusercontent.com/Maomaokuxs/rulesearch/master/rules/pan-pansoubk.yaml",
       "file": "pan-pansoubk.yaml"
     },
     {
       "name": "盘万搜",
       "type": "pan",
       "version": "1",
-      "update_url": "https://raw.githubusercontent.com/Maomaokuxs/rulesearch/main/rules/pan-panws.yaml",
+      "update_url": "https://raw.githubusercontent.com/Maomaokuxs/rulesearch/master/rules/pan-panws.yaml",
       "file": "pan-panws.yaml"
     }
   ]

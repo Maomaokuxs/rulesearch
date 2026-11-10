@@ -2,7 +2,7 @@ name: "NASPT"
 type: pan
 enabled: true
 version: 1
-update_url: "https://raw.githubusercontent.com/Maomaokuxs/rulesearch/main/rules/pan-naspt.yaml"
+update_url: "https://raw.githubusercontent.com/Maomaokuxs/rulesearch/master/rules/pan-naspt.yaml"
 
 request:
   url: "https://api.naspt.vip/api/open/pansou/search?kw={keyword}"
