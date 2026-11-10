@@ -2,6 +2,7 @@ package dev.rulesearch.app.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -63,56 +64,50 @@ fun FavoritesTab(vm: SearchViewModel) {
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                item {
-                    // 白色圆角卡片内复用结果行
-                    Column(
-                        modifier = Modifier.clip(RoundedCornerShape(16.dp))
-                            .background(cardBackground()),
+                items(vm.favorites) { f ->
+                    val asResult = SearchResultUi(
+                        title = f.title,
+                        url = f.url,
+                        size = f.size,
+                        time = f.time,
+                        source = f.source,
+                        kind = f.kind,
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth()
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(cardBackground())
+                            .clickable { opened = f }
+                            .padding(horizontal = 16.dp, vertical = 16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        vm.favorites.forEachIndexed { i, f ->
-                            val asResult = SearchResultUi(
-                                title = f.title,
-                                url = f.url,
-                                size = f.size,
-                                time = f.time,
-                                source = f.source,
-                                kind = f.kind,
+                        Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
+                            Text(
+                                text = f.title,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis,
+                                fontWeight = FontWeight.Medium,
+                                fontSize = 17.sp,
+                                lineHeight = 23.8.sp,
+                                color = MiuixTheme.colorScheme.onSurface,
                             )
-                            Row(
-                                modifier = Modifier.fillMaxWidth()
-                                    .clickable { opened = f }
-                                    .padding(horizontal = 16.dp, vertical = 12.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
-                                    Text(
-                                        text = f.title,
-                                        maxLines = 2,
-                                        overflow = TextOverflow.Ellipsis,
-                                        fontWeight = FontWeight.Medium,
-                                        fontSize = 17.sp,
-                                        lineHeight = 22.sp,
-                                        color = MiuixTheme.colorScheme.onSurface,
-                                    )
-                                    Box(modifier = Modifier.padding(top = 6.dp)) {
-                                        ResultMetaLine(asResult)
-                                    }
-                                }
-                                // 右侧蓝色星标：点按取消收藏
-                                Box(
-                                    modifier = Modifier.size(36.dp).clip(CircleShape)
-                                        .clickable { vm.removeFavorite(f.url) },
-                                    contentAlignment = Alignment.Center,
-                                ) {
-                                    Text(
-                                        text = "★",
-                                        fontSize = 20.sp,
-                                        color = MiuixTheme.colorScheme.primary,
-                                    )
-                                }
+                            Box(modifier = Modifier.padding(top = 6.dp)) {
+                                ResultMetaLine(asResult)
                             }
-                            if (i < vm.favorites.size - 1) ResultDivider()
+                        }
+                        // 右侧蓝色星标：点按取消收藏
+                        Box(
+                            modifier = Modifier.size(36.dp).clip(CircleShape)
+                                .clickable { vm.removeFavorite(f.url) },
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text(
+                                text = "★",
+                                fontSize = 20.sp,
+                                color = MiuixTheme.colorScheme.primary,
+                            )
                         }
                     }
                 }

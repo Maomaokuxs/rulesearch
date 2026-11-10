@@ -32,16 +32,20 @@ import dev.rulesearch.app.SearchResultUi
 import dev.rulesearch.app.panBrandOf
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
-/** 标题里的关键词高亮：命中部分染主色加粗，其余不动。 */
+/** 标题里的关键词高亮：命中部分浅蓝底 + 深蓝字，其余不动。 */
+@Composable
 fun highlightTitle(title: String, keyword: String, highlight: Color): AnnotatedString {
     val kw = keyword.trim()
     if (kw.isEmpty()) return AnnotatedString(title)
+    val dark = LocalIsDark.current
+    val highlightBg = if (dark) highlight.copy(alpha = 0.25f) else Color(0xFFDBEAFE)
+    val highlightFg = if (dark) Color(0xFF93C5FD) else Color(0xFF1D4ED8)
     return buildAnnotatedString {
         append(title)
         var i = title.indexOf(kw, ignoreCase = true)
         while (i >= 0) {
             addStyle(
-                SpanStyle(color = highlight, fontWeight = FontWeight.Medium),
+                SpanStyle(color = highlightFg, background = highlightBg, fontWeight = FontWeight.Medium),
                 i,
                 i + kw.length,
             )
@@ -62,7 +66,7 @@ fun ResultMetaLine(r: SearchResultUi) {
                 modifier = Modifier.size(8.dp).clip(CircleShape)
                     .background(MiuixTheme.colorScheme.secondary.copy(alpha = 0.45f)),
             )
-            Spacer(Modifier.width(6.dp))
+            Spacer(Modifier.width(4.dp))
             TextLine(r.source)
             if (meta.isNotEmpty()) {
                 TextLine(" · $meta")
@@ -83,7 +87,7 @@ fun ResultMetaLine(r: SearchResultUi) {
                     maxLines = 1,
                 )
             }
-            Spacer(Modifier.width(6.dp))
+            Spacer(Modifier.width(4.dp))
             TextLine(r.source)
             if (meta.isNotEmpty()) {
                 TextLine(" · $meta")
@@ -121,7 +125,7 @@ fun ResultRow(
             .clip(RoundedCornerShape(16.dp))
             .background(cardBackground())
             .combinedClickable(onClick = onClick, onLongClick = onLongClick)
-            .padding(horizontal = 16.dp, vertical = 13.dp),
+            .padding(horizontal = 16.dp, vertical = 16.dp),
         // 顶部对齐：标题 1 行/2 行时右侧指示器位置不动
         verticalAlignment = Alignment.Top,
     ) {
@@ -132,7 +136,7 @@ fun ResultRow(
                     text = highlightTitle(r.title, keyword, primary),
                     fontSize = 17.sp,
                     fontWeight = FontWeight.Medium,
-                    lineHeight = 20.sp,
+                    lineHeight = 23.8.sp,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -147,12 +151,25 @@ fun ResultRow(
             ) {
                 when {
                     selectionMode -> SelectCircle(selected = selected)
-                    linkOk != null -> top.yukonga.miuix.kmp.basic.Text(
-                        text = if (linkOk) "有效" else "失效",
-                        fontSize = 12.sp,
-                        color = if (linkOk) COLOR_REACHABLE else MiuixTheme.colorScheme.error,
-                        maxLines = 1,
-                    )
+                    else -> Row(verticalAlignment = Alignment.Top) {
+                        if (linkOk != null) {
+                            top.yukonga.miuix.kmp.basic.Text(
+                                text = if (linkOk) "有效" else "失效",
+                                fontSize = 12.sp,
+                                color = if (linkOk) COLOR_REACHABLE else MiuixTheme.colorScheme.error,
+                                maxLines = 1,
+                            )
+                            Spacer(Modifier.width(4.dp))
+                        }
+                        // 非多选模式的浅灰 › 箭头，与标题列顶部对齐
+                        top.yukonga.miuix.kmp.basic.Text(
+                            text = "›",
+                            fontSize = 20.sp,
+                            lineHeight = 20.sp,
+                            color = MiuixTheme.colorScheme.secondary,
+                            maxLines = 1,
+                        )
+                    }
                 }
             }
     }
