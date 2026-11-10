@@ -87,7 +87,7 @@ fun MineTab(vm: SearchViewModel) {
             "rules" -> MineSubPage(onBack = { page = null }) { ManageTab(vm = vm) }
             "blocklist" -> MineSubPage(onBack = { page = null }) { BlocklistPage(vm = vm) }
             "appearance" -> MineSubPage(onBack = { page = null }) { AppearancePage(vm = vm) }
-            "about" -> AboutPage(vm = vm, onLicense = { page = "license" }, onBack = { page = null })
+            "about" -> MineSubPage(onBack = { page = null }) { AboutPage(vm = vm, onLicense = { page = "license" }) }
             "license" -> MineSubPage(onBack = { page = "about" }) {
                 LicensePage(onEntryClick = { selectedLicense = it })
             }
@@ -319,38 +319,12 @@ private fun AppearancePage(vm: SearchViewModel) {
  * 关于页（清聆关于页布局）：图标 + 名字 + 版本 + 简介 + 功能卡片 + 底部小字。
  */
 @Composable
-private fun AboutPage(vm: SearchViewModel, onLicense: () -> Unit, onBack: () -> Unit) {
+private fun AboutPage(vm: SearchViewModel, onLicense: () -> Unit) {
     val context = LocalContext.current
     val iconBitmap = remember {
         context.getDrawable(R.mipmap.ic_launcher)?.toBitmap()
     }
     Column(modifier = Modifier.fillMaxSize()) {
-        // 顶部：圆形返回按钮 + 「关于」标题
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 4.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Box(
-                modifier = Modifier.size(40.dp)
-                    .clip(CircleShape)
-                    .background(cardGray())
-                    .clickable(onClick = onBack),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    text = "←",
-                    fontSize = 18.sp,
-                    color = MiuixTheme.colorScheme.onSurface,
-                )
-            }
-            Text(
-                text = "关于",
-                fontWeight = FontWeight.ExtraBold,
-                fontSize = 20.sp,
-                color = MiuixTheme.colorScheme.onSurface,
-                modifier = Modifier.padding(start = 12.dp),
-            )
-        }
         // 居中：图标 + 应用名 + 版本 + 简介
         Column(
             modifier = Modifier.fillMaxWidth().padding(top = 48.dp),
