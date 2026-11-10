@@ -45,6 +45,11 @@ import androidx.compose.ui.window.Dialog
 import androidx.core.net.toUri
 import androidx.core.graphics.drawable.toBitmap
 import dev.rulesearch.app.SearchViewModel
+import dev.rulesearch.app.ThemeMode
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.style.TextAlign
+import dev.rulesearch.app.BuildConfig
+import dev.rulesearch.app.R
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.theme.MiuixTheme
@@ -81,7 +86,8 @@ fun MineTab(vm: SearchViewModel) {
             "footprints" -> MineSubPage(onBack = { page = null }) { FootprintsTab(vm = vm) }
             "rules" -> MineSubPage(onBack = { page = null }) { ManageTab(vm = vm) }
             "blocklist" -> MineSubPage(onBack = { page = null }) { BlocklistPage(vm = vm) }
-            "about" -> MineSubPage(onBack = { page = null }) { AboutPage(vm = vm, onLicense = { page = "license" }) }
+            "appearance" -> MineSubPage(onBack = { page = null }) { AppearancePage(vm = vm) }
+            "about" -> AboutPage(vm = vm, onLicense = { page = "license" }, onBack = { page = null })
             "license" -> MineSubPage(onBack = { page = "about" }) {
                 LicensePage(onEntryClick = { selectedLicense = it })
             }
@@ -90,19 +96,21 @@ fun MineTab(vm: SearchViewModel) {
                 onFootprints = { page = "footprints" },
                 onRules = { page = "rules" },
                 onBlocklist = { page = "blocklist" },
+                onAppearance = { page = "appearance" },
                 onAbout = { page = "about" },
             )
         }
     }
 }
 
-/** "我的"一级菜单：页底浅灰 + 三组白卡片（mock 样式）。 */
+/** "我的"一级菜单：页底浅灰 + 四组白卡片（mock 样式）。 */
 @Composable
 private fun MineMenu(
     vm: SearchViewModel,
     onFootprints: () -> Unit,
     onRules: () -> Unit,
     onBlocklist: () -> Unit,
+    onAppearance: () -> Unit,
     onAbout: () -> Unit,
 ) {
     val health = vm.ruleHealth
@@ -173,7 +181,20 @@ private fun MineMenu(
                     onClick = onBlocklist,
                 )
             }
-            // 3. 关于
+            // 3. 外观
+            MineCard(onClick = onAppearance) {
+                MineMenuRow(
+                    title = "外观",
+                    trailing = {
+                        Text(
+                            text = vm.themeMode.label,
+                            fontSize = 14.sp,
+                            color = MiuixTheme.colorScheme.secondary,
+                        )
+                    },
+                )
+            }
+            // 4. 关于
             MineCard(onClick = onAbout) {
                 MineMenuRow(title = "关于", trailing = null)
             }
@@ -253,40 +274,128 @@ private fun MineSubPage(onBack: () -> Unit, content: @Composable () -> Unit) {
     }
 }
 
-/**
- * 关于页（按 mock）。
- */
+/** 外观页：跟随系统 / 浅色 / 深色三段选择，当前项打勾，切换立即生效。 */
 @Composable
-private fun AboutPage(vm: SearchViewModel, onLicense: () -> Unit) {
-    val context = LocalContext.current
+private fun AppearancePage(vm: SearchViewModel) {
     Column(modifier = Modifier.fillMaxSize()) {
         Text(
-            text = "关于",
+            text = "外观",
             fontWeight = FontWeight.ExtraBold,
             fontSize = 32.sp,
             modifier = Modifier.padding(start = 24.dp, top = 12.dp, bottom = 16.dp),
         )
-        // 第一张卡片：RuleSearch / 规则搜索
         Column(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)
                 .clip(RoundedCornerShape(16.dp))
-                .background(cardBackground())
-                .padding(16.dp),
+                .background(cardBackground()),
         ) {
+            ThemeMode.entries.forEachIndexed { i, mode ->
+                if (i > 0) {
+                    Box(
+                        modifier = Modifier.fillMaxWidth().padding(start = 16.dp)
+                            .height(0.5.dp).background(MiuixTheme.colorScheme.outline),
+                    )
+                }
+                MineMenuRow(
+                    title = mode.label,
+                    trailing = {
+                        if (vm.themeMode == mode) {
+                            Text(
+                                text = "✓",
+                                fontSize = 17.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = MiuixTheme.colorScheme.primary,
+                            )
+                        }
+                    },
+                    onClick = { vm.setTheme(mode) },
+                )
+            }
+        }
+    }
+}
+
+/**
+ * 关于页（清聆关于页布局）：图标 + 名字 + 版本 + 简介 + 功能卡片 + 底部小字。
+ */
+@Composable
+private fun AboutPage(vm: SearchViewModel, onLicense: () -> Unit, onBack: () -> Unit) {
+    val context = LocalContext.current
+    val iconBitmap = remember {
+        context.getDrawable(R.mipmap.ic_launcher)?.toBitmap()
+    }
+    Column(modifier = Modifier.fillMaxSize()) {
+        // 顶部：圆形返回按钮 + 「关于」标题
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box(
+                modifier = Modifier.size(40.dp)
+                    .clip(CircleShape)
+                    .background(cardGray())
+                    .clickable(onClick = onBack),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    text = "←",
+                    fontSize = 18.sp,
+                    color = MiuixTheme.colorScheme.onSurface,
+                )
+            }
+            Text(
+                text = "关于",
+                fontWeight = FontWeight.ExtraBold,
+                fontSize = 20.sp,
+                color = MiuixTheme.colorScheme.onSurface,
+                modifier = Modifier.padding(start = 12.dp),
+            )
+        }
+        // 居中：图标 + 应用名 + 版本 + 简介
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(top = 48.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            if (iconBitmap != null) {
+                Image(
+                    bitmap = iconBitmap.asImageBitmap(),
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.size(88.dp).clip(RoundedCornerShape(24.dp)),
+                )
+            } else {
+                Box(
+                    modifier = Modifier.size(88.dp)
+                        .clip(RoundedCornerShape(24.dp))
+                        .background(MiuixTheme.colorScheme.primary),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(text = "R", fontSize = 36.sp, fontWeight = FontWeight.ExtraBold, color = Color.White)
+                }
+            }
             Text(
                 text = "RuleSearch",
-                fontSize = 17.sp,
+                fontSize = 20.sp,
                 fontWeight = FontWeight.ExtraBold,
+                color = MiuixTheme.colorScheme.onSurface,
+                modifier = Modifier.padding(top = 16.dp),
             )
             Text(
-                text = "规则搜索",
+                text = "版本 ${BuildConfig.VERSION_NAME}",
                 fontSize = 14.sp,
                 color = MiuixTheme.colorScheme.secondary,
                 modifier = Modifier.padding(top = 4.dp),
             )
+            Text(
+                text = "规则引擎式网盘 / 磁力搜索，帮你快速找到想要的资源。",
+                fontSize = 14.sp,
+                color = MiuixTheme.colorScheme.secondary,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(start = 48.dp, end = 48.dp, top = 12.dp),
+            )
         }
-        Spacer(modifier = Modifier.height(16.dp))
-        // 第二张卡片：检查更新 / 开源许可 / 问题反馈
+        Spacer(modifier = Modifier.height(32.dp))
+        // 功能卡片：检查更新 / 开源许可 / 问题反馈
         Column(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)
                 .clip(RoundedCornerShape(16.dp))
@@ -329,6 +438,15 @@ private fun AboutPage(vm: SearchViewModel, onLicense: () -> Unit) {
                 },
             )
         }
+        Spacer(modifier = Modifier.weight(1f))
+        // 底部小字
+        Text(
+            text = "RuleSearch · 让搜索更简单",
+            fontSize = 12.sp,
+            color = MiuixTheme.colorScheme.secondary,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp),
+        )
     }
     // 检查更新：有更新弹窗 / 已是最新 / 失败 Toast
     val updateState = vm.updateState
